@@ -20,6 +20,7 @@ add_subdirectory(src/core)
 add_subdirectory(src/io)
 add_subdirectory(src/platform)
 add_subdirectory(src/backends/fake)
+add_subdirectory(src/cli)
 
 if(RDESK_BUILD_TESTS)
   enable_testing()

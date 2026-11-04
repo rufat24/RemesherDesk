@@ -400,5 +400,6 @@ Sessions run sequentially unless marked ∥, which means they can run in paralle
 | A4 | done on Linux (gcc, clang+ASan/UBSan); 1,002,528-triangle OBJ reads in 0.58 s (local Release, gcc 13) against the 3 s target; green on MSVC (`docs/ci.md` §5) |
 | A5 | done; green on gcc, clang+ASan/UBSan and MSVC (`docs/ci.md` §5): stats, AABB tree, PCG32 sampling, distances, `compare` for T0/T1/T2, 200-case property test |
 | A7 | done on Linux (gcc, clang+ASan/UBSan); MSVC result in `docs/ci.md` §5. Deviations from the task text: explicit backend registration, params JSON in `rdesk_io`, `registered_backends()` (see `docs/decisions.md`) |
-| A8 | Linux done (gcc, clang+ASan/UBSan, TSan: no races). **Windows half is untested until CI reports** (`docs/ci.md` §5) |
+| A8 | Linux done (gcc, clang+ASan/UBSan, TSan: no races). Windows: production code compiled under `/W4 /WX`; the first run failed only on a test-helper warning (fixed); Windows test results in `docs/ci.md` §5 |
+| A9 | Linux done (gcc; clang+ASan/UBSan with the instrumented worker). Conformance suite: 11 cases, 1556 assertions, 20+20 cancel trials. Windows result in `docs/ci.md` §5 |
 | all others | not started |

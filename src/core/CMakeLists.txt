@@ -6,6 +6,7 @@ add_library(rdesk_core
   src/metrics.cpp
   src/params.cpp
   src/facade.cpp
+  src/sha256.cpp
   src/sampling.cpp
   src/aabb_tree.cpp
 )

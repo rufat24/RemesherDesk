@@ -36,6 +36,7 @@ extern char** environ;
 static void sleep_ms(long ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 
 static int run(const std::vector<std::string>& a, const char* self) {
+  (void)self;  // only the POSIX `grandchild` mode needs it
   if (a.empty()) return 64;
   const std::string& mode = a[0];
   if (mode == "args") {

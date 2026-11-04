@@ -310,3 +310,15 @@ and partial output are possible, and the cooperative path is preferred whenever 
 - OBJ import convention (RH default, or "Unity LH" for OBJ files written by tools that do not convert)
 
 Unknown keys are preserved. A corrupt file is renamed to `settings.json.bad` and defaults are used.
+
+## 7. Worker implementation notes (A9)
+
+These are clarifications the implementation forced; the protocol version stays 1.
+
+- **`hello` is first even when the run cannot start** (bad arguments, unknown backend): `backend` is then the id given (or `""`) and `backend_version` / `caps` are absent.
+- **`result.json`** is written next to the `--out` file (`<out dir>/result.json`) on success (`{"ok":true,"result":{...}}`) and on any failure that happens after the output path is known (`{"ok":false,"error":{...}}`).
+- **Text protocol** (`--protocol text`, the default on a terminal) prints human lines and does **not** watch stdin: a human who runs `rdesk ... < /dev/null` must not cancel the job by accident. In `jsonl` mode, EOF on stdin is a cancel, as specified.
+- **Progress** frac is clamped to be non-decreasing across stages; the backend's own 0..1 is mapped to 5..90 %, load is 0..5 %, write 90..100 %. Events are rate-limited to one per 50 ms except at stage changes and at 1.0.
+- **Exit without exit-time cleanup.** `main` flushes stdout/stderr and calls `std::_Exit`. The stdin watcher is a detached thread blocked in a read that holds the stdio lock for stdin; a normal `exit()` takes that lock while flushing and waits until the parent writes or closes something (observed: every successful run took the whole 30 s test timeout).
+- **`compare` exit codes:** 0 = verdict PASS, 1 = verdict FAIL (not an error), otherwise the table above.
+- **Windows start-up** (`wmain`): `SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX)`, `_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT)`, stdin/stdout in binary mode, UTF-16 arguments converted to UTF-8.

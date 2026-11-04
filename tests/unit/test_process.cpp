@@ -349,3 +349,12 @@ TEST_CASE("paths: the executable and the default jobs root") {
     CHECK(root.value().is_absolute());
   }
 }
+
+TEST_CASE("paths: UTF-8 path conversion round trips non-ASCII names") {
+  const std::string name = "d\xC3\xA9j\xC3\xA0 \xE6\x97\xA5\xE6\x9C\xAC.rdm";
+  const auto p = path_from_utf8(name);
+  CHECK_FALSE(p.empty());
+  CHECK(path_to_utf8(p) == name);
+  CHECK(path_to_utf8(path_from_utf8("plain/dir/file.obj")) == std::string("plain") + std::filesystem::path::preferred_separator + "dir" +
+                                                                    std::filesystem::path::preferred_separator + "file.obj");
+}

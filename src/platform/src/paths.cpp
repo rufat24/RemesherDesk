@@ -1,4 +1,5 @@
 #include "rdesk/paths.hpp"
+#include "rdesk/utf.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -19,6 +20,24 @@
 namespace rdesk::platform {
 
 namespace fs = std::filesystem;
+
+fs::path path_from_utf8(std::string_view utf8) {
+#ifdef _WIN32
+  auto w = utf8_to_wide(utf8);
+  return w ? fs::path(w.value()) : fs::path();
+#else
+  return fs::path(std::string(utf8));
+#endif
+}
+
+std::string path_to_utf8(const fs::path& p) {
+#ifdef _WIN32
+  auto u = wide_to_utf8(p.wstring());
+  return u ? u.value() : std::string();
+#else
+  return p.string();
+#endif
+}
 
 Result<fs::path> executable_path() {
 #ifdef _WIN32

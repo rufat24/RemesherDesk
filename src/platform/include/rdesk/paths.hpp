@@ -2,10 +2,18 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
+#include <string_view>
 
 #include "rdesk/result.hpp"
 
 namespace rdesk::platform {
+
+// UTF-8 text <-> filesystem path. On Windows the conversion goes through UTF-16 (std::filesystem::path::string()
+// would use the ANSI code page and mangle non-ASCII names; u8path is deprecated). Invalid UTF-8 gives an empty path
+// from path_from_utf8 (callers that care use is_valid_utf8 first).
+std::filesystem::path path_from_utf8(std::string_view utf8);
+std::string path_to_utf8(const std::filesystem::path& p);
 
 // Absolute path of the running executable.
 Result<std::filesystem::path> executable_path();

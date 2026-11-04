@@ -305,3 +305,33 @@ TEST_CASE("compare: JSON report") {
   CHECK(o.find("\"value\":null") != std::string::npos);
   CHECK(o.find("tab\\t") != std::string::npos);
 }
+
+#include "rdesk/sha256.hpp"
+
+TEST_CASE("sha256: FIPS 180-4 test vectors, chunked input and lengths around the block size") {
+  CHECK(sha256_hex("", 0) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  CHECK(sha256_hex("abc", 3) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  const std::string two_blocks = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+  CHECK(sha256_hex(two_blocks.data(), two_blocks.size()) == "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
+
+  Sha256 million;  // one million 'a', fed in odd-sized pieces
+  const std::string chunk(997, 'a');
+  std::size_t left = 1000000;
+  while (left > 0) {
+    const std::size_t n = std::min(left, chunk.size());
+    million.update(chunk.data(), n);
+    left -= n;
+  }
+  CHECK(million.hex_digest() == "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
+
+  // Splitting the input anywhere gives the same digest as hashing it in one go.
+  std::string data(300, '\0');
+  for (std::size_t i = 0; i < data.size(); ++i) data[i] = static_cast<char>(i * 7 + 3);
+  const std::string whole = sha256_hex(data.data(), data.size());
+  for (std::size_t cut : {1u, 55u, 56u, 63u, 64u, 65u, 119u, 128u, 299u}) {
+    Sha256 h;
+    h.update(data.data(), cut);
+    h.update(data.data() + cut, data.size() - cut);
+    CHECK(h.hex_digest() == whole);
+  }
+}

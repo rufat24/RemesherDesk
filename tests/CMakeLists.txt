@@ -63,3 +63,13 @@ target_include_directories(rdesk_property PRIVATE ${PROJECT_SOURCE_DIR}/src/core
 rdesk_target_defaults(rdesk_property)
 add_test(NAME property.all COMMAND rdesk_property)
 set_tests_properties(property.all PROPERTIES LABELS "property")
+
+# Worker protocol conformance: drives the real rdesk executable through rdesk::platform::Process.
+add_executable(rdesk_protocol protocol/test_protocol.cpp)
+target_link_libraries(rdesk_protocol PRIVATE rdesk::core rdesk::io rdesk::platform doctest::doctest nlohmann_json::nlohmann_json)
+target_include_directories(rdesk_protocol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/unit)
+target_compile_definitions(rdesk_protocol PRIVATE RDESK_EXE="$<TARGET_FILE:rdesk>")
+add_dependencies(rdesk_protocol rdesk)
+rdesk_target_defaults(rdesk_protocol)
+add_test(NAME protocol.all COMMAND rdesk_protocol)
+set_tests_properties(protocol.all PROPERTIES LABELS "protocol" TIMEOUT 300)

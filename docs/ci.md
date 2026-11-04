@@ -48,4 +48,17 @@ The `ci-msvc` preset sets no generator on purpose. CMake then uses the newest Vi
 | 2026-11-04 | `2a2385a` (A3 + dependency fix) | green: linux-ci-gcc, linux-ci-clang, intake-tools, windows-msvc (MSVC `/W4 /WX`, A2+A3 tests pass on Windows) | https://github.com/rufat24/RemesherDesk/actions/runs/41851759279 |
 | 2026-11-04 | `e959814` (A4) | **windows-msvc failed at build**; Linux and intake jobs green | `getenv` in the tests: MSVC C4996 is an error under `/WX`. Fix: portable `fixtures::env_value` (`_dupenv_s` on MSVC). The library code itself compiled cleanly under `/W4 /WX`. Run: https://github.com/rufat24/RemesherDesk/actions/runs/41852822989 |
 | 2026-11-04 | `d21018e` (A5 + getenv fix) | green: all four jobs. MSVC `/W4 /WX`; the pinned PCG32 sample checksum matches on MSVC, gcc 13 and clang 18 | https://github.com/rufat24/RemesherDesk/actions/runs/41854071284 |
+| 2026-11-04 | `2724276` (A7) | green: all four jobs (cancel-within-100 ms tests pass on Windows too) | https://github.com/rufat24/RemesherDesk/actions/runs/41854892112 |
+| 2026-11-04 | `d583d6b` (A8) | **windows-msvc failed at build**; Linux/intake green. All production code compiled under `/W4 /WX`, including `process_win32.cpp`; the failure was C4100 (unused parameter) in the test helper `tests/helpers/child.cpp`, which also stopped the tests that depend on it from building | https://github.com/rufat24/RemesherDesk/actions/runs/41856159054 |
 | 2026-11-04 | `7cd000e` (A2) | **windows-msvc failed at configure**; Linux and intake jobs green | doctest 2.4.11 declares `cmake_minimum_required(VERSION 3.0)`, which the runner's CMake rejects ("Compatibility with CMake < 3.5 has been removed"). Fix: header-only deps are fetched but their CMake projects are not run (`cmake/Deps.cmake`). Reproduced locally with CMake 4.4.4 from PyPI. Run: https://github.com/rufat24/RemesherDesk/actions/runs/41850433452 |
+
+## 6. Measurements (Linux, local, gcc 13 Release unless noted)
+
+| What | Result | Target |
+|---|---|---|
+| `rdesk --version` round trip through `Process` | median ~2 ms, max ~3 ms | recorded (A9) |
+| Cooperative cancel, UI-equivalent harness | worst 5 ms over 20 trials | <= 1250 ms in 20/20 |
+| `debug.hang` + cancel + forced kill after a 1000 ms grace period | worst 1007 ms over 20 trials | <= 1250 ms in 20/20 |
+| Read a 1,002,528-triangle OBJ | 0.58 s | < 3 s |
+
+Windows numbers are printed by the same tests in the `windows-msvc` job log (`[protocol] ...` lines).
