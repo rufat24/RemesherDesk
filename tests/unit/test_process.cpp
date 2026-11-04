@@ -163,7 +163,9 @@ TEST_CASE("process: exit codes and stderr") {
     // The reader thread may lag the exit slightly.
     const auto end = Clock::now() + std::chrono::seconds(5);
     while (p->stderr_text().empty() && Clock::now() < end) std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    CHECK(p->stderr_text() == "something went wrong\n");
+    std::string text = p->stderr_text();  // stderr is passed through byte for byte; the Windows CRT of the child writes "\r\n"
+    text.erase(std::remove(text.begin(), text.end(), '\r'), text.end());
+    CHECK(text == "something went wrong\n");
   }
 }
 

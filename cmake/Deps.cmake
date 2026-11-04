@@ -53,3 +53,23 @@ function(rdesk_fetch_tinyobj)
   target_include_directories(rdesk_tinyobj SYSTEM PUBLIC "${tinyobjloader_SOURCE_DIR}")
   set_target_properties(rdesk_tinyobj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endfunction()
+
+# Polyscope v2.6.1 (MIT) with Dear ImGui, GLFW, glm, ... as its submodules - the GUI toolkit (docs/decisions.md D3).
+# Only fetched when RDESK_BUILD_APP is ON. Pinned to the commit of tag v2.6.1; the submodules are pinned by that commit.
+function(rdesk_fetch_polyscope)
+  if(TARGET polyscope)
+    return()
+  endif()
+  # Linux: X11 only (no Wayland dependency); the Windows build uses the Win32 backend.
+  set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+  set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(polyscope
+    GIT_REPOSITORY https://github.com/nmwsharp/polyscope.git
+    GIT_TAG        0c3dd68b9851417e6b2b976d347adc3250026122  # v2.6.1
+    GIT_SUBMODULES deps/glfw deps/imgui/imgui deps/imgui/implot deps/imgui/ImGuizmo deps/glm deps/happly
+    SYSTEM)
+  FetchContent_MakeAvailable(polyscope)
+endfunction()

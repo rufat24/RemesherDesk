@@ -44,7 +44,16 @@ When a decision is reversed, edit its entry in place. Add a dated "Reversed:" li
   4. File drop and keyboard shortcuts are reachable.
   5. Release binary under 15 MB.
 
-  Building Polyscope in this planning session was **blocked by the session's sandbox policy**, so none of the above is verified yet.
+  Building Polyscope in the planning session was blocked by the sandbox policy, so none of the above was verified then.
+
+- **A10 spike outcome (Polyscope v2.6.1, commit `0c3dd68`, MIT):**
+  1. *Builds.* gcc 13 on Linux: yes (146 targets, about 4 minutes on 4 cores). It also configures with CMake 4.x. MSVC: see `docs/ci.md` §5 for the `windows-msvc` result.
+  2. *Mixed polygons without triangulation artefacts: verified by eye.* `tests/data/mixed.obj` (22 triangles, 23 quads, 1 pentagon) under `xvfb-run` with Mesa llvmpipe (OpenGL 4.5 core): quads are drawn as quads with only their own edges, triangles show their one diagonal, the pentagon is a single polygon; colouring by corners-per-face (viridis 3 / 4 / 5) works. `tests/gui/screenshot_smoke.sh` checks that the image is non-blank (colour count, coverage, contrast) and runs as ctest `gui.screenshot_smoke` (1.6 s).
+  3. *Own panels instead of the default ones: works, with two settings that the plan did not know about.* `polyscope::options::buildDefaultGuiPanels = false` hides the stock panels, and `polyscope::options::openImGuiWindowForUserCallback = false` removes the empty "user gui" window that Polyscope otherwise opens for `polyscope::state::userCallback`. Screenshots exclude the UI unless `ScreenshotOptions::includeUI = true`. Our panel's counts matched `rdesk info`.
+  4. *File drop and shortcuts are reachable:* `polyscope::state::filesDroppedCallback` (GLFW drop) and `ImGui::IsKeyPressed` inside the callback are wired in the spike. Their interactive behaviour was not exercised here (no pointer or keyboard under Xvfb).
+  5. *Size:* the Release executable is 10.7 MB (9.7 MB stripped), statically linked with Polyscope, ImGui and GLFW; target 15 MB.
+- **Decision: Polyscope is kept; the fallback is not needed.** Also learned: Polyscope ships an **EGL** backend and a **mock** backend (`openGL3_egl`, `openGL_mock` were enabled by default), which may give A12's `--selftest --no-gl` a real headless path without Xvfb.
+- **Not yet decided:** file dialogs. `nativefiledialog-extended` needs GTK3 (or xdg-desktop-portal) development packages on Linux; it is added in A11, where it is first used.
 - **Fallback:** plain Dear ImGui + GLFW + a minimal OpenGL 3.3 renderer of our own (flat-shaded polygons, wireframe overlay, per-face colours, orbit camera). That is about one extra session. Panel code carries over unchanged because it is the same ImGui.
 - **Alternatives:**
   - **Qt 6** (LGPL, dynamic linking): best native look and docking, but a heavy toolchain in CI, about 40 MB extra to deploy (UNVERIFIED), and the viewport would still need a custom renderer.

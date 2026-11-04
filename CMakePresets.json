@@ -48,6 +48,12 @@
       "cacheVariables": { "RDESK_WERROR": "ON" }
     },
     {
+      "name": "ci-gui",
+      "displayName": "GCC Release with the GUI (needs X11/OpenGL dev packages)",
+      "inherits": "ci-gcc",
+      "cacheVariables": { "RDESK_BUILD_APP": "ON" }
+    },
+    {
       "name": "ci-clang",
       "inherits": "clang-asan",
       "cacheVariables": { "RDESK_WERROR": "ON" }
@@ -74,7 +80,7 @@
     {
       "name": "ci-msvc",
       "inherits": "msvc",
-      "cacheVariables": { "RDESK_WERROR": "ON" }
+      "cacheVariables": { "RDESK_WERROR": "ON", "RDESK_BUILD_APP": "ON" }
     }
   ],
   "buildPresets": [
@@ -84,6 +90,7 @@
     { "name": "clang-asan", "configurePreset": "clang-asan" },
     { "name": "ci-gcc", "configurePreset": "ci-gcc" },
     { "name": "ci-clang", "configurePreset": "ci-clang" },
+    { "name": "ci-gui", "configurePreset": "ci-gui" },
     { "name": "clang-fuzz", "configurePreset": "clang-fuzz" },
     { "name": "msvc-release", "configurePreset": "msvc", "configuration": "Release" },
     { "name": "msvc-debug", "configurePreset": "msvc", "configuration": "Debug" },
@@ -97,6 +104,7 @@
     { "name": "clang-asan", "inherits": "base", "configurePreset": "clang-asan" },
     { "name": "ci-gcc", "inherits": "base", "configurePreset": "ci-gcc" },
     { "name": "ci-clang", "inherits": "base", "configurePreset": "ci-clang" },
+    { "name": "ci-gui", "inherits": "base", "configurePreset": "ci-gui" },
     { "name": "msvc-release", "inherits": "base", "configurePreset": "msvc", "configuration": "Release" },
     { "name": "ci-msvc", "inherits": "base", "configurePreset": "ci-msvc", "configuration": "Release" }
   ]

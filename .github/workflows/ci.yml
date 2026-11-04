@@ -36,6 +36,29 @@ jobs:
       - name: Test
         run: ctest --preset ${{ matrix.preset }}
 
+  gui:
+    name: linux-gui (Polyscope, screenshot under xvfb)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain and X11/OpenGL development packages
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build xorg-dev libgl1-mesa-dev libgl1-mesa-dri xvfb
+      - name: Configure
+        run: cmake --preset ci-gui
+      - name: Build
+        run: cmake --build --preset ci-gui
+      - name: Screenshot smoke test
+        run: ctest --preset ci-gui -L gui
+      - name: Keep the screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-screenshot
+          path: build/ci-gui/src/app/screenshot_smoke.png
+          if-no-files-found: ignore
+          retention-days: 7
+
   intake-tools:
     name: intake-tools (C# writer, Python reader, PowerShell 7 inventory)
     runs-on: ubuntu-24.04

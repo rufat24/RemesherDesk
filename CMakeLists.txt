@@ -11,7 +11,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(RDESK_BUILD_TESTS "Build tests" ON)
 option(RDESK_WERROR "Treat warnings as errors" OFF)
+option(RDESK_BUILD_APP "Build the GUI (fetches Polyscope; needs OpenGL and, on Linux, X11 development packages)" OFF)
 option(RDESK_SANITIZE "Enable ASan+UBSan (gcc/clang only)" OFF)
+
+# enable_testing() must come before the first add_subdirectory(): tests registered in a subdirectory (src/app) are
+# otherwise dropped silently.
+if(RDESK_BUILD_TESTS)
+  enable_testing()
+endif()
 
 include(cmake/RdeskWarnings.cmake)
 include(cmake/Deps.cmake)
@@ -21,8 +28,10 @@ add_subdirectory(src/io)
 add_subdirectory(src/platform)
 add_subdirectory(src/backends/fake)
 add_subdirectory(src/cli)
+if(RDESK_BUILD_APP)
+  add_subdirectory(src/app)
+endif()
 
 if(RDESK_BUILD_TESTS)
-  enable_testing()
   add_subdirectory(tests)
 endif()
