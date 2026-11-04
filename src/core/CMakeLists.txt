@@ -1,5 +1,8 @@
 add_library(rdesk_core
   src/version.cpp
+  src/mesh.cpp
+  src/convention.cpp
+  src/validate.cpp
 )
 add_library(rdesk::core ALIAS rdesk_core)
 target_include_directories(rdesk_core PUBLIC

@@ -394,4 +394,6 @@ Sessions run sequentially unless marked ∥, which means they can run in paralle
 | Task | Status |
 |---|---|
 | A0 | done |
+| A1 | done (CI run linked in `docs/ci.md` §5; the Windows job and the 5.1 inventory test were green on A0) |
+| A2 | done on Linux (gcc 13 `-Werror`; clang 18 + ASan/UBSan `-Werror`); MSVC result is recorded in `docs/ci.md` §5 |
 | all others | not started |

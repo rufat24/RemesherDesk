@@ -44,4 +44,4 @@ The `ci-msvc` preset sets no generator on purpose. CMake then uses the newest Vi
 
 | Date | Commit | Result | Notes |
 |---|---|---|---|
-| — | A0 | not observed yet | Task A1 records the first green run here |
+| 2026-11-04 | `0395699` (A0) | green: linux-ci-gcc, linux-ci-clang, intake-tools, windows-msvc (incl. Windows PowerShell 5.1 inventory test) | https://github.com/rufat24/RemesherDesk/actions/runs/41848848140 |

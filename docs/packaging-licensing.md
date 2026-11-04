@@ -58,7 +58,7 @@ The "Top-level licence" column was **read from the repository's LICENSE file on 
 | nativefiledialog-extended | zlib | same |
 | tinyobjloader | MIT | include notice |
 | nlohmann/json | MIT | include notice |
-| doctest (tests only, not shipped) | MIT | — |
+| doctest 2.4.11 (tests only, not shipped; pinned to commit `ae7a135…`) | MIT (LICENSE.txt read at that tag) | — |
 | happly (optional A15) | MIT | include notice |
 | MSVC runtime (app-local) | Microsoft redistribution terms (UNVERIFIED which files are allowed) | follow the VS "Distributable Code" list |
 
