@@ -53,6 +53,18 @@
       "cacheVariables": { "RDESK_WERROR": "ON" }
     },
     {
+      "name": "clang-fuzz",
+      "displayName": "Clang + libFuzzer + ASan/UBSan (fuzz targets only run as fuzzers here)",
+      "inherits": "unix-base",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS": "-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "RDESK_FUZZ_ENGINE": "ON"
+      }
+    },
+    {
       "name": "msvc",
       "displayName": "MSVC x64 (default Visual Studio generator)",
       "inherits": "base",
@@ -72,6 +84,7 @@
     { "name": "clang-asan", "configurePreset": "clang-asan" },
     { "name": "ci-gcc", "configurePreset": "ci-gcc" },
     { "name": "ci-clang", "configurePreset": "ci-clang" },
+    { "name": "clang-fuzz", "configurePreset": "clang-fuzz" },
     { "name": "msvc-release", "configurePreset": "msvc", "configuration": "Release" },
     { "name": "msvc-debug", "configurePreset": "msvc", "configuration": "Debug" },
     { "name": "ci-msvc", "configurePreset": "ci-msvc", "configuration": "Release" }

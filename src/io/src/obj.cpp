@@ -23,29 +23,80 @@ using std::uint32_t;
 
 Error parse_error(std::string msg) { return make_error(Errc::Parse, "OBJ: " + std::move(msg)); }
 
-// tinyobjloader maps `usemtl` names to ids through the .mtl it is given; with no .mtl every usemtl gets
-// id -1 and different materials could not be told apart. So we synthesise a minimal .mtl that merely
-// declares each name. (This function only sees names; it never reads the file system.)
-std::string synthesize_mtl(std::string_view text) {
-  std::string mtl;
+// tinyobjloader ends a material name at the first blank, so "Mat A" and "Mat B" would both become "Mat" and two groups
+// would merge. Blanks inside a name are therefore written as control characters in the private copy and restored
+// when a group label is built.
+std::string encode_material_name(std::string name) {
+  for (char& c : name) c = c == ' ' ? '\x1f' : c == '\t' ? '\x1e' : c;
+  return name;
+}
+std::string decode_material_name(std::string name) {
+  for (char& c : name) c = c == '\x1f' ? ' ' : c == '\x1e' ? '\t' : c;
+  return name;
+}
+
+struct PreparedSource {
+  std::string text;  // what tinyobjloader is given
+  std::string mtl;   // a minimal .mtl that declares every usemtl name
+};
+
+bool starts_with_keyword(std::string_view line, std::string_view keyword, size_t* after) {
+  const size_t b = line.find_first_not_of(" \t");
+  if (b == std::string_view::npos || line.compare(b, keyword.size(), keyword) != 0) return false;
+  const size_t e = b + keyword.size();
+  if (e < line.size() && line[e] != ' ' && line[e] != '\t' && line[e] != '\r') return false;  // "vwx" is not "vw"
+  *after = e;
+  return true;
+}
+
+// One pass over the file that makes the private copy tinyobjloader parses:
+//  1. `usemtl` names: tinyobjloader maps them to ids through the .mtl it is given, and with no .mtl every usemtl gets id
+//     -1, so different materials could not be told apart. We synthesise a minimal .mtl that merely declares each
+//     name and, because tinyobjloader only consults it after an `mtllib` line, prepend one.
+//  2. `vw` lines (vertex skin weights) are dropped. We do not use them, and tinyobjloader v2.0.0rc13 converts the
+//     parsed joint id to `int` without a range check, which is undefined behaviour for a huge number (found by
+//     fuzzing; tests/data/fuzz-regressions/obj/vw-line-float-to-int-ub.obj). They never affect `v` numbering.
+PreparedSource prepare_source(std::string_view text) {
+  PreparedSource out;
   std::unordered_set<std::string> seen;
+  std::string body;
+  body.reserve(text.size());
   size_t pos = 0;
   while (pos < text.size()) {
     size_t eol = text.find('\n', pos);
+    const size_t next = eol == std::string_view::npos ? text.size() : eol + 1;
     if (eol == std::string_view::npos) eol = text.size();
-    std::string_view line = text.substr(pos, eol - pos);
-    pos = eol + 1;
-    size_t b = line.find_first_not_of(" \t");
-    if (b == std::string_view::npos || line.compare(b, 6, "usemtl") != 0) continue;
-    b += 6;
-    if (b >= line.size() || (line[b] != ' ' && line[b] != '\t')) continue;
-    const size_t s = line.find_first_not_of(" \t", b);
-    if (s == std::string_view::npos) continue;
-    size_t e = line.find_last_not_of(" \t\r");
-    const std::string name(line.substr(s, e - s + 1));
-    if (seen.insert(name).second) mtl += "newmtl " + name + "\n";
+    const std::string_view line = text.substr(pos, eol - pos);
+    size_t after = 0;
+    if (starts_with_keyword(line, "vw", &after)) {
+      body.push_back('\n');  // keep line numbers in tinyobjloader's messages
+    } else {
+      size_t name_begin = 0, name_end = 0;  // [begin, end) of the material name within `line`
+      bool is_usemtl = false;
+      if (starts_with_keyword(line, "usemtl", &after)) {
+        const size_t b = line.find_first_not_of(" \t", after);
+        const size_t e = line.find_last_not_of(" \t\r");
+        if (b != std::string_view::npos && e != std::string_view::npos && e >= b) {
+          is_usemtl = true;
+          name_begin = b;
+          name_end = e + 1;
+        }
+      }
+      if (is_usemtl) {
+        const std::string name = encode_material_name(std::string(line.substr(name_begin, name_end - name_begin)));
+        if (seen.insert(name).second) out.mtl += "newmtl " + name + "\n";
+        body.append(text.substr(pos, name_begin));
+        body.append(name);
+        body.append(text.substr(pos + name_end, next - (pos + name_end)));
+      } else {
+        body.append(text.substr(pos, next - pos));
+      }
+    }
+    pos = next;
   }
-  return mtl;
+  if (!out.mtl.empty()) out.text = "mtllib rdesk-synthesized.mtl\n";
+  out.text += body;
+  return out;
 }
 
 struct Tuple {  // (v, vt, vn); -1 = absent
@@ -63,15 +114,8 @@ Result<ObjFile> read_obj_impl(std::string_view text, const ObjReadOptions& opts)
   cfg.triangulate = false;
   cfg.vertex_color = false;
   tinyobj::ObjReader reader;
-  // The supplied .mtl text is only consulted when the OBJ contains an `mtllib` line (the file name is ignored),
-  // so prepend one to our private copy whenever there is something to declare. A file's own `mtllib` lines
-  // then find the stream already consumed, which is harmless.
-  const std::string mtl = synthesize_mtl(text);
-  std::string source;
-  source.reserve(text.size() + 32);
-  if (!mtl.empty()) source += "mtllib rdesk-synthesized.mtl\n";
-  source.append(text);
-  if (!reader.ParseFromString(source, mtl, cfg)) {
+  const PreparedSource prepared = prepare_source(text);
+  if (!reader.ParseFromString(prepared.text, prepared.mtl, cfg)) {
     std::string why = reader.Error();
     while (!why.empty() && (why.back() == '\n' || why.back() == '\r')) why.pop_back();
     return parse_error(why.empty() ? "tinyobjloader rejected the file" : why);
@@ -110,7 +154,7 @@ Result<ObjFile> read_obj_impl(std::string_view text, const ObjReadOptions& opts)
       if (inserted) {
         std::string label = sh.name;
         if (mat >= 0 && static_cast<size_t>(mat) < reader.GetMaterials().size()) {
-          label += "|" + reader.GetMaterials()[static_cast<size_t>(mat)].name;
+          label += "|" + decode_material_name(reader.GetMaterials()[static_cast<size_t>(mat)].name);
         }
         out.group_labels.push_back(std::move(label));
       }

@@ -1,0 +1,63 @@
+# Fuzzing (docs/testing.md §6, task A6). libFuzzer + ASan + UBSan, clang only.
+#  - Weekly: 10 minutes per target on the default branch.
+#  - Pull requests that touch the readers or the harnesses: 60 seconds per target.
+#  - Manual runs: pick the time budget.
+# A crash fails the job and uploads the input. Fix the bug, then commit the input to
+# tests/data/fuzz-regressions/<rdm|obj|params>/ so that every compiler replays it from then on (ctest -L fuzz).
+name: fuzz
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'   # Mondays 03:17 UTC
+  pull_request:
+    paths:
+      - 'src/io/**'
+      - 'src/core/**'
+      - 'tests/fuzz/**'
+      - 'tests/data/fuzz-regressions/**'
+      - '.github/workflows/fuzz.yml'
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: 'Seconds per target'
+        default: '600'
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: fuzz-${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: fuzz_rdm, kind: rdm }
+          - { target: fuzz_obj, kind: obj }
+          - { target: fuzz_params_json, kind: params }
+    env:
+      SECONDS_PER_TARGET: ${{ github.event_name == 'pull_request' && '60' || github.event.inputs.seconds || '600' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build clang libclang-rt-18-dev
+      - name: Configure and build
+        run: |
+          cmake --preset clang-fuzz
+          cmake --build --preset clang-fuzz --target ${{ matrix.target }}
+      - name: Fuzz
+        run: |
+          mkdir -p corpus artifacts
+          cp tests/fuzz/corpus/${{ matrix.kind }}/* corpus/
+          cp -n tests/data/fuzz-regressions/${{ matrix.kind }}/* corpus/ 2>/dev/null || true
+          build/clang-fuzz/tests/${{ matrix.target }} \
+            -max_total_time=$SECONDS_PER_TARGET -rss_limit_mb=2048 -max_len=1048576 \
+            -artifact_prefix=artifacts/ -print_final_stats=1 corpus
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crash-${{ matrix.target }}
+          path: artifacts/

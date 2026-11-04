@@ -402,4 +402,5 @@ Sessions run sequentially unless marked ∥, which means they can run in paralle
 | A7 | done on Linux (gcc, clang+ASan/UBSan); MSVC result in `docs/ci.md` §5. Deviations from the task text: explicit backend registration, params JSON in `rdesk_io`, `registered_backends()` (see `docs/decisions.md`) |
 | A8 | Linux done (gcc, clang+ASan/UBSan, TSan: no races). Windows: production code compiled under `/W4 /WX`; the first run failed only on a test-helper warning (fixed); Windows test results in `docs/ci.md` §5 |
 | A9 | Linux done (gcc; clang+ASan/UBSan with the instrumented worker). Conformance suite: 11 cases, 1556 assertions, 20+20 cancel trials. Windows result in `docs/ci.md` §5 |
+| A6 | fuzz targets, seed corpora, replay ctest (`-L fuzz`), `clang-fuzz` preset and `fuzz.yml` done. First finding within 4 minutes (tinyobjloader UB on `vw` lines) fixed, with regression input. 10-minute local runs: see `docs/testing.md` §6 |
 | all others | not started |

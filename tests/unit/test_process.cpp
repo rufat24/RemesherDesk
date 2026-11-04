@@ -355,6 +355,5 @@ TEST_CASE("paths: UTF-8 path conversion round trips non-ASCII names") {
   const auto p = path_from_utf8(name);
   CHECK_FALSE(p.empty());
   CHECK(path_to_utf8(p) == name);
-  CHECK(path_to_utf8(path_from_utf8("plain/dir/file.obj")) == std::string("plain") + std::filesystem::path::preferred_separator + "dir" +
-                                                                    std::filesystem::path::preferred_separator + "file.obj");
+  CHECK(path_to_utf8(path_from_utf8("plain/dir/file.obj")) == "plain/dir/file.obj");  // separators are not rewritten
 }

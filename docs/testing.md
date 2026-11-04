@@ -119,6 +119,10 @@ All of them are seeded, and the seed is printed on failure.
 - **Rules:**
   - Allocation size must be bounded by the input size. Every reader checks this before it allocates.
   - `-rss_limit_mb=2048`, `-max_len=1048576`.
+- **Implemented (A6):** `fuzz_rdm`, `fuzz_obj`, `fuzz_params_json` (`tests/fuzz`). Each checks a property in addition to "does not crash": what the RDM reader accepts must be a valid mesh that the writer writes and the reader reads back bit for bit; what the OBJ reader accepts must be valid, and a finite mesh must survive write/read with identical positions; parsed parameters must survive a JSON round trip. `fuzz_protocol_line` waits for the GUI (A11), which owns that parser.
+- **Replay on every compiler.** Without `RDESK_FUZZ_ENGINE` the same files get a replay `main()` and ctest (`-L fuzz`) feeds them `tests/fuzz/corpus/<kind>` plus `tests/data/fuzz-regressions/<kind>`, so a crash that was fixed once is checked on gcc, clang+sanitizers and MSVC forever.
+- **Building the fuzzers:** `cmake --preset clang-fuzz && cmake --build --preset clang-fuzz` (needs clang and `libclang-rt-18-dev`); run `build/clang-fuzz/tests/fuzz_obj -max_total_time=600 corpus_dir`.
+- **Findings so far.** Within 4 minutes `fuzz_obj` found undefined behaviour in tinyobjloader v2.0.0rc13: a `vw` line with a huge joint id is converted float -> int without a range check. Fix: `vw` lines (skin weights, unused) are dropped before parsing; regression input `tests/data/fuzz-regressions/obj/vw-line-float-to-int-ub.obj`. A related robustness fix came out of testing the same code: tinyobjloader cuts material names at the first blank, which merged `Mat A` and `Mat B`; blanks inside names are now encoded.
 
 ## 7. Commands
 

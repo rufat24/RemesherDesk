@@ -73,3 +73,25 @@ add_dependencies(rdesk_protocol rdesk)
 rdesk_target_defaults(rdesk_protocol)
 add_test(NAME protocol.all COMMAND rdesk_protocol)
 set_tests_properties(protocol.all PROPERTIES LABELS "protocol" TIMEOUT 300)
+
+# Fuzz targets (docs/testing.md §6). With RDESK_FUZZ_ENGINE=ON (preset clang-fuzz) they link libFuzzer; otherwise they
+# get a replay main() and ctest feeds them the seed corpus and every file in tests/data/fuzz-regressions, so crashes
+# found once stay fixed on every compiler.
+option(RDESK_FUZZ_ENGINE "Link the fuzz targets with libFuzzer (clang only)" OFF)
+foreach(target IN ITEMS fuzz_rdm:rdm fuzz_obj:obj fuzz_params_json:params)
+  string(REPLACE ":" ";" parts "${target}")
+  list(GET parts 0 name)
+  list(GET parts 1 kind)
+  add_executable(${name} fuzz/${name}.cpp)
+  target_link_libraries(${name} PRIVATE rdesk::core rdesk::io rdesk::backend_fake)
+  target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fuzz)
+  rdesk_target_defaults(${name})
+  if(RDESK_FUZZ_ENGINE)
+    target_link_options(${name} PRIVATE -fsanitize=fuzzer)
+  else()
+    target_sources(${name} PRIVATE fuzz/replay_main.cpp)
+    add_test(NAME fuzz.replay.${kind}
+             COMMAND ${name} ${CMAKE_CURRENT_SOURCE_DIR}/fuzz/corpus/${kind} ${CMAKE_CURRENT_SOURCE_DIR}/data/fuzz-regressions/${kind})
+    set_tests_properties(fuzz.replay.${kind} PROPERTIES LABELS "unit;fuzz")
+  endif()
+endforeach()

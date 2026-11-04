@@ -89,7 +89,7 @@ struct Job {
   fs::path dir;
   explicit Job(const std::string& name = "job") {
     static int counter = 0;
-    dir = fs::temp_directory_path() / ("rdesk_proto_" + std::to_string(++counter) + "_" + name);
+    dir = fs::temp_directory_path() / path_from_utf8("rdesk_proto_" + std::to_string(++counter) + "_" + name);  // name is UTF-8
     fs::remove_all(dir);
     fs::create_directories(dir);
   }

@@ -344,3 +344,40 @@ TEST_CASE("obj: large file smoke / timing") {
   std::cout << "[perf] read_obj: " << r.value().mesh.face_count() << " triangles, " << text.size() / (1024 * 1024)
             << " MiB in " << secs << " s" << (full ? "" : " (smoke size)") << "\n";
 }
+
+TEST_CASE("obj: vw (skin weight) lines are ignored, even absurd ones, and do not disturb the rest") {
+  // tinyobjloader v2.0.0rc13 casts the joint id of a `vw` line to int without a range check (UB for huge values).
+  const std::string text =
+      "v 0 0 0\nv 1 0 0\nvw 0 99999999999999999999999999999999999999999999 0.5\nv 0 1 0\n"
+      "  vw 1 3333333333333333333333333333333333333333 1\r\nvwx 1 2 3\nf 1 2 3\n";
+  auto r = read_obj(text);
+  REQUIRE(r.ok());
+  CHECK(r.value().mesh.vertex_count() == 3);
+  CHECK(r.value().mesh.face_count() == 1);
+  // "vwx" is not a vw line; tinyobjloader treats it as an unknown keyword and ignores it.
+  const auto plain = read_obj("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+  REQUIRE(plain.ok());
+  CHECK(bit_equal(r.value().mesh.positions, plain.value().mesh.positions));
+}
+
+TEST_CASE("obj: usemtl handling survives the single-pass preparation (CRLF, leading blanks, no trailing newline)") {
+  const std::string text = "v 0 0 0\r\nv 1 0 0\r\nv 0 1 0\r\n  usemtl\tshiny metal  \r\nf 1 2 3\r\nusemtl other\r\nf 1 3 2";
+  auto r = read_obj(text);
+  REQUIRE(r.ok());
+  REQUIRE(r.value().mesh.face_group.size() == 2);
+  CHECK(r.value().mesh.face_group[0] != r.value().mesh.face_group[1]);
+  CHECK(r.value().group_labels[0].find("shiny metal") != std::string::npos);
+}
+
+TEST_CASE("obj: material names with spaces stay distinct (tinyobjloader alone would cut them at the first blank)") {
+  const std::string text =
+      "v 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl Mat A\nf 1 2 3\nusemtl Mat B\nf 1 3 2\nusemtl Mat  A\nf 2 3 1\nusemtl Mat A\nf 3 1 2\n";
+  auto r = read_obj(text);
+  REQUIRE(r.ok());
+  // "Mat A", "Mat B", "Mat  A" (two blanks) are three different materials; the fourth face reuses the first.
+  CHECK(r.value().mesh.face_group == std::vector<std::uint32_t>{0, 1, 2, 0});
+  REQUIRE(r.value().group_labels.size() == 3);
+  CHECK(r.value().group_labels[0] == "|Mat A");
+  CHECK(r.value().group_labels[1] == "|Mat B");
+  CHECK(r.value().group_labels[2] == "|Mat  A");
+}
