@@ -3,7 +3,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "rdesk/convention.hpp"
@@ -103,8 +106,47 @@ inline PolyMesh make_chiral() {
                          {4, 6, 5}, {4, 5, 7}, {4, 7, 6}, {5, 6, 7}});
 }
 
+// Portable getenv: MSVC deprecates std::getenv (C4996, an error under /WX).
+inline std::optional<std::string> env_value(const char* name) {
+#ifdef _MSC_VER
+  char* buf = nullptr;
+  std::size_t len = 0;
+  if (_dupenv_s(&buf, &len, name) != 0 || buf == nullptr) return std::nullopt;
+  std::string v(buf);
+  std::free(buf);
+  return v;
+#else
+  const char* v = std::getenv(name);
+  if (v == nullptr) return std::nullopt;
+  return std::string(v);
+#endif
+}
+
 inline bool bit_equal(const std::vector<float>& a, const std::vector<float>& b) {
   return a.size() == b.size() && (a.empty() || std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0);
+}
+
+}  // namespace fixtures
+
+namespace fixtures {
+
+// nx x ny quads in the XY plane (z = 0), cell size `cell`, normals +z (right-handed, counter-clockwise).
+inline rdesk::PolyMesh make_grid(std::uint32_t nx, std::uint32_t ny, float cell = 1.0f, float z = 0.0f) {
+  std::vector<float> pos;
+  for (std::uint32_t y = 0; y <= ny; ++y) {
+    for (std::uint32_t x = 0; x <= nx; ++x) {
+      pos.insert(pos.end(), {static_cast<float>(x) * cell, static_cast<float>(y) * cell, z});
+    }
+  }
+  std::vector<std::vector<std::uint32_t>> faces;
+  const std::uint32_t row = nx + 1;
+  for (std::uint32_t y = 0; y < ny; ++y) {
+    for (std::uint32_t x = 0; x < nx; ++x) {
+      const std::uint32_t a = y * row + x;
+      faces.push_back({a, a + 1, a + row + 1, a + row});
+    }
+  }
+  return make_mesh(pos, faces);
 }
 
 }  // namespace fixtures

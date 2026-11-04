@@ -21,8 +21,10 @@ add_executable(rdesk_unit
   unit/test_validate.cpp
   unit/test_rdm.cpp
   unit/test_obj.cpp
+  unit/test_metrics.cpp
 )
 target_link_libraries(rdesk_unit PRIVATE rdesk::core rdesk::io doctest::doctest)
+target_include_directories(rdesk_unit PRIVATE ${PROJECT_SOURCE_DIR}/src/core/src)
 target_compile_definitions(rdesk_unit PRIVATE RDESK_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 rdesk_target_defaults(rdesk_unit)
 add_test(NAME unit.all COMMAND rdesk_unit)
@@ -42,3 +44,11 @@ if(Python3_FOUND)
              -P ${CMAKE_CURRENT_SOURCE_DIR}/run_rdm_crosscheck.cmake)
   set_tests_properties(io.rdm_cpp_writes_what_python_reads PROPERTIES LABELS "unit;tools")
 endif()
+
+# Property tests: random meshes, seeds in the failure messages. ctest label "property".
+add_executable(rdesk_property property/test_properties.cpp)
+target_link_libraries(rdesk_property PRIVATE rdesk::core doctest::doctest)
+target_include_directories(rdesk_property PRIVATE ${PROJECT_SOURCE_DIR}/src/core/src ${CMAKE_CURRENT_SOURCE_DIR}/unit)
+rdesk_target_defaults(rdesk_property)
+add_test(NAME property.all COMMAND rdesk_property)
+set_tests_properties(property.all PROPERTIES LABELS "property")

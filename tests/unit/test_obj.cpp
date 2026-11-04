@@ -318,7 +318,7 @@ TEST_CASE("obj: files on disk, atomic write") {
 // Performance target (A4 exit): a 1M-triangle OBJ loads in under 3 s in a Release build. Not a gate: it only
 // reports. Set RDESK_PERF=1 to run the full size; otherwise a 50k-triangle smoke version runs.
 TEST_CASE("obj: large file smoke / timing") {
-  const bool full = std::getenv("RDESK_PERF") != nullptr;
+  const bool full = env_value("RDESK_PERF").has_value();
   const std::uint32_t n = full ? 708 : 160;  // n x n quads -> 2 n^2 triangles
   std::string text;
   text.reserve(static_cast<std::size_t>(n) * n * 60);

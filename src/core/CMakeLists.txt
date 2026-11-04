@@ -3,6 +3,9 @@ add_library(rdesk_core
   src/mesh.cpp
   src/convention.cpp
   src/validate.cpp
+  src/metrics.cpp
+  src/sampling.cpp
+  src/aabb_tree.cpp
 )
 add_library(rdesk::core ALIAS rdesk_core)
 target_include_directories(rdesk_core PUBLIC

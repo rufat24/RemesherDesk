@@ -51,6 +51,13 @@ Some notation:
 
   Then set each threshold to max(3× the observed maximum, the floor above), but never looser than the T2 caps. Record the measurements in `docs/parity-report.md`. Thresholds live in `tests/parity/tolerances.json`. Loosening any value needs a note in that report saying why.
 
+### Implementation notes (A5)
+
+- The sample-point checksum (`tests/unit/test_metrics.cpp`, "pinned checksum") is the executable check that samples are byte-identical across compilers. It matched on gcc 13 and clang 18 when written; the MSVC result is in `docs/ci.md` §5.
+- `mean`, `rms` and Chamfer are taken over the area samples only; the vertices contribute to the maximum only (they are extremes, not a uniform sample).
+- T1 "relabelling" is stricter than the table above: faces are canonicalised by rotating each one to start at its smallest vertex and sorting, which keeps winding. Vertices must match by exact position, so a relabelled mesh has displacement 0 by construction.
+- `compare(..., T2)` rejects meshes with structural errors (`Errc::InputInvalid`) instead of returning a verdict.
+
 ### How Hausdorff is measured
 
 1. Sample area-uniformly, N = max(1e5, 10·F) points per surface, plus all vertices. Use an in-house PCG32 with a fixed seed.
