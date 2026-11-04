@@ -45,3 +45,4 @@ The `ci-msvc` preset sets no generator on purpose. CMake then uses the newest Vi
 | Date | Commit | Result | Notes |
 |---|---|---|---|
 | 2026-11-04 | `0395699` (A0) | green: linux-ci-gcc, linux-ci-clang, intake-tools, windows-msvc (incl. Windows PowerShell 5.1 inventory test) | https://github.com/rufat24/RemesherDesk/actions/runs/41848848140 |
+| 2026-11-04 | `7cd000e` (A2) | **windows-msvc failed at configure**; Linux and intake jobs green | doctest 2.4.11 declares `cmake_minimum_required(VERSION 3.0)`, which the runner's CMake rejects ("Compatibility with CMake < 3.5 has been removed"). Fix: header-only deps are fetched but their CMake projects are not run (`cmake/Deps.cmake`). Reproduced locally with CMake 4.4.4 from PyPI. Run: https://github.com/rufat24/RemesherDesk/actions/runs/41850433452 |

@@ -395,5 +395,6 @@ Sessions run sequentially unless marked ∥, which means they can run in paralle
 |---|---|
 | A0 | done |
 | A1 | done (CI run linked in `docs/ci.md` §5; the Windows job and the 5.1 inventory test were green on A0) |
-| A2 | done on Linux (gcc 13 `-Werror`; clang 18 + ASan/UBSan `-Werror`); MSVC result is recorded in `docs/ci.md` §5 |
+| A2 | done on Linux (gcc 13 `-Werror`; clang 18 + ASan/UBSan `-Werror`); first MSVC run failed on the dependency CMake version, fixed (`docs/ci.md` §5) |
+| A3 | done on Linux (gcc, clang+ASan/UBSan; also configured/built/tested with CMake 4.4.4); MSVC result in `docs/ci.md` §5 |
 | all others | not started |

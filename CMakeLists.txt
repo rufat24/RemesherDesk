@@ -14,8 +14,10 @@ option(RDESK_WERROR "Treat warnings as errors" OFF)
 option(RDESK_SANITIZE "Enable ASan+UBSan (gcc/clang only)" OFF)
 
 include(cmake/RdeskWarnings.cmake)
+include(cmake/Deps.cmake)
 
 add_subdirectory(src/core)
+add_subdirectory(src/io)
 
 if(RDESK_BUILD_TESTS)
   enable_testing()

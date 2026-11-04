@@ -1,6 +1,6 @@
 # Architecture
 
-Status: design. Implemented so far in `src/core`: `result.hpp`, `mesh.hpp`, `convention.hpp`, `validate.hpp` (task A2). Everything marked
+Status: design. Implemented so far in `src/core`: `result.hpp`, `mesh.hpp`, `convention.hpp`, `validate.hpp` (task A2); in `src/io`: `rdm.hpp` (task A3). Everything marked
 **(B)** depends on intake (`docs/intake.md`). Everything else can be built now.
 
 ## 1. Repository layout (target)

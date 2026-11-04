@@ -1,0 +1,10 @@
+# Runs the C++ writer, then asks the Python reference reader to verify the file.
+execute_process(COMMAND ${WRITER} ${OUT} RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0)
+  message(FATAL_ERROR "rdm_write_cube failed (${rc})")
+endif()
+execute_process(COMMAND ${PYTHON} -I ${RDM_PY} check-fixture ${OUT} RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err)
+message(STATUS "${out}${err}")
+if(NOT rc EQUAL 0)
+  message(FATAL_ERROR "rdm.py check-fixture rejected the C++ file")
+endif()
