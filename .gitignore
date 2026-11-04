@@ -5,7 +5,11 @@
 *.user
 CMakeUserPresets.json
 __pycache__/
-bin/
-obj/
+
+# .NET build output of the projects under tools/ (scoped: a bare "obj/" would also hide test data folders named obj)
+tools/**/bin/
+tools/**/obj/
+
+# RDM files are generated unless they live under tests/ as fixtures, seeds or regression inputs
 *.rdm
-!tests/data/**/*.rdm
+!tests/**/*.rdm

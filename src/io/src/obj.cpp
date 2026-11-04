@@ -63,19 +63,23 @@ PreparedSource prepare_source(std::string_view text) {
   body.reserve(text.size());
   size_t pos = 0;
   while (pos < text.size()) {
-    size_t eol = text.find('\n', pos);
-    const size_t next = eol == std::string_view::npos ? text.size() : eol + 1;
+    // tinyobjloader ends a line at "\n", "\r\n" or a lone "\r"; we must agree with it on what a line is, or a `vw` line
+    // after a bare CR would slip through (found by fuzzing).
+    size_t eol = text.find_first_of("\r\n", pos);
     if (eol == std::string_view::npos) eol = text.size();
+    size_t next = eol;
+    if (next < text.size()) next += (text[next] == '\r' && next + 1 < text.size() && text[next + 1] == '\n') ? 2 : 1;
     const std::string_view line = text.substr(pos, eol - pos);
+    const std::string_view terminator = text.substr(eol, next - eol);
     size_t after = 0;
     if (starts_with_keyword(line, "vw", &after)) {
-      body.push_back('\n');  // keep line numbers in tinyobjloader's messages
+      body.append(terminator.empty() ? std::string_view("\n") : terminator);  // keep line numbers in tinyobjloader's messages
     } else {
       size_t name_begin = 0, name_end = 0;  // [begin, end) of the material name within `line`
       bool is_usemtl = false;
       if (starts_with_keyword(line, "usemtl", &after)) {
         const size_t b = line.find_first_not_of(" \t", after);
-        const size_t e = line.find_last_not_of(" \t\r");
+        const size_t e = line.find_last_not_of(" \t");
         if (b != std::string_view::npos && e != std::string_view::npos && e >= b) {
           is_usemtl = true;
           name_begin = b;
@@ -85,12 +89,13 @@ PreparedSource prepare_source(std::string_view text) {
       if (is_usemtl) {
         const std::string name = encode_material_name(std::string(line.substr(name_begin, name_end - name_begin)));
         if (seen.insert(name).second) out.mtl += "newmtl " + name + "\n";
-        body.append(text.substr(pos, name_begin));
+        body.append(line.substr(0, name_begin));
         body.append(name);
-        body.append(text.substr(pos + name_end, next - (pos + name_end)));
+        body.append(line.substr(name_end));
       } else {
-        body.append(text.substr(pos, next - pos));
+        body.append(line);
       }
+      body.append(terminator);
     }
     pos = next;
   }

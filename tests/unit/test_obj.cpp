@@ -381,3 +381,17 @@ TEST_CASE("obj: material names with spaces stay distinct (tinyobjloader alone wo
   CHECK(r.value().group_labels[1] == "|Mat B");
   CHECK(r.value().group_labels[2] == "|Mat  A");
 }
+
+TEST_CASE("obj: line terminators - LF, CRLF and a bare CR - are seen the same way as tinyobjloader sees them") {
+  // A `vw` line after a bare CR must be dropped too (tinyobjloader would otherwise cast its huge joint id to int).
+  const std::string text = std::string("v 0 0 0\rv 1 0 0\rvw 0 99999999999999999999999999999999999999999999 1\rv 0 1 0\r\nf 1 2 3\r");
+  auto r = read_obj(text);
+  REQUIRE(r.ok());
+  CHECK(r.value().mesh.vertex_count() == 3);
+  CHECK(r.value().mesh.face_count() == 1);
+  // The committed regression inputs found by fuzzing must be accepted or rejected, never crash.
+  for (const char* name : {"fuzz-regressions/obj/vw-line-float-to-int-ub.obj", "fuzz-regressions/obj/vw-after-bare-cr.obj"}) {
+    auto f = read_obj_file(kData / name);
+    if (f.ok()) CHECK(validate(f.value().mesh).format_errors.empty());
+  }
+}
