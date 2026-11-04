@@ -18,6 +18,7 @@ include(cmake/Deps.cmake)
 
 add_subdirectory(src/core)
 add_subdirectory(src/io)
+add_subdirectory(src/platform)
 add_subdirectory(src/backends/fake)
 
 if(RDESK_BUILD_TESTS)

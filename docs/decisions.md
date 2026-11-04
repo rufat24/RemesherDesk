@@ -177,3 +177,11 @@ See `docs/packaging-licensing.md`.
 - **`registered_backends()`** replaces the draft's `backends()`: that name collides with the namespace `rdesk::backends` that holds the backend libraries.
 - **`InputRequirements`** (`require_manifold`, `require_closed`, `triangles_only`) is the "policy from backend" that §3 mentions but did not define.
 - **Facade cancel rule.** A cancel that is set when the backend returns is reported as `Cancelled` even if the backend finished (a deaf backend such as `debug.ignore_cancel`), so the worker never reports success after the user pressed Cancel.
+
+## A8 implementation notes (platform process layer)
+
+- **Shared threaded layer, thin native backends.** `process.cpp` holds everything platform-independent (one reader thread per pipe, the line queue, waiting); `process_posix.cpp` / `process_win32.cpp` only spawn, read, write, kill and poll. Blocking reads in threads are simpler and more portable than overlapped I/O or `poll`, and the cost is two idle threads per job.
+- **Backpressure, not loss.** The first version dropped the oldest line beyond 100,000 queued lines; a test showed that this could silently discard a protocol event. The reader now stops reading when the queue is full, so the child blocks in its own write. Reversal evidence: a caller that never reads stdout would stall a chatty child; the GUI always drains, and the worker emits at most ~20 events per second.
+- **POSIX.** `posix_spawn` with its own process group (kill takes down grandchildren), `SIGPIPE` ignored in the parent but reset to default in the child (an ignored disposition would otherwise be inherited across exec), close-on-exec pipes plus `addclosefrom_np(3)` on glibc >= 2.34 so that no other descriptor leaks. Elsewhere the leak test is skipped, not faked.
+- **Windows.** `CREATE_SUSPENDED` + explicit handle list + Job Object with `KILL_ON_JOB_CLOSE` assigned before `ResumeThread`, as specified. Exit codes with both top bits set are classed as crashes. Exit-code classification and the Job Object paths have only been exercised through the `windows-msvc` CI job.
+- **Job folder names use UTC** (`yyyymmdd-hhmmss-xxxx`): local time would make the sort order wrong across a DST change.

@@ -13,6 +13,13 @@ if(Python3_FOUND)
   set_tests_properties(tools.rdm_py_selftest PROPERTIES LABELS "tools")
 endif()
 
+# Helper program started by the process-layer tests.
+add_executable(rdesk_test_child helpers/child.cpp)
+if(WIN32)
+  target_link_libraries(rdesk_test_child PRIVATE rdesk::platform)
+endif()
+rdesk_target_defaults(rdesk_test_child)
+
 # Unit tests (doctest). One executable; ctest label "unit".
 rdesk_fetch_doctest()
 add_executable(rdesk_unit
@@ -23,10 +30,13 @@ add_executable(rdesk_unit
   unit/test_obj.cpp
   unit/test_metrics.cpp
   unit/test_facade.cpp
+  unit/test_process.cpp
 )
-target_link_libraries(rdesk_unit PRIVATE rdesk::core rdesk::io rdesk::backend_fake doctest::doctest)
+target_link_libraries(rdesk_unit PRIVATE rdesk::core rdesk::io rdesk::platform rdesk::backend_fake doctest::doctest)
 target_include_directories(rdesk_unit PRIVATE ${PROJECT_SOURCE_DIR}/src/core/src)
-target_compile_definitions(rdesk_unit PRIVATE RDESK_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
+target_compile_definitions(rdesk_unit PRIVATE RDESK_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+                                              RDESK_TEST_CHILD="$<TARGET_FILE:rdesk_test_child>")
+add_dependencies(rdesk_unit rdesk_test_child)
 rdesk_target_defaults(rdesk_unit)
 add_test(NAME unit.all COMMAND rdesk_unit)
 set_tests_properties(unit.all PROPERTIES LABELS "unit")

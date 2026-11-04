@@ -1,6 +1,6 @@
 # Architecture
 
-Status: design. Implemented so far in `src/core`: `result.hpp`, `mesh.hpp`, `convention.hpp`, `validate.hpp` (task A2), `metrics.hpp` (task A5), `params.hpp`/`backend.hpp` and the facade (task A7); in `src/io`: `rdm.hpp` (task A3), `obj.hpp` (task A4), `json_codec.hpp` (task A7); `src/backends/fake` (task A7). Everything marked
+Status: design. Implemented so far in `src/core`: `result.hpp`, `mesh.hpp`, `convention.hpp`, `validate.hpp` (task A2), `metrics.hpp` (task A5), `params.hpp`/`backend.hpp` and the facade (task A7); in `src/io`: `rdm.hpp` (task A3), `obj.hpp` (task A4), `json_codec.hpp` (task A7); `src/backends/fake` (task A7); `src/platform`: `process.hpp`, `utf.hpp`, `paths.hpp` (task A8). Everything marked
 **(B)** depends on intake (`docs/intake.md`). Everything else can be built now.
 
 ## 1. Repository layout (target)
