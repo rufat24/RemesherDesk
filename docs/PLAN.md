@@ -150,6 +150,24 @@ The full task list, with files, steps and exit commands, is in [work-breakdown.m
 3. **B1 jumps the queue** as soon as the inventory arrives.
 4. A branch then takes about 3–8 sessions (UNVERIFIED estimates).
 
+## 5b. Status (updated at the end of the A10 session)
+
+| Task | State | Verified on |
+|---|---|---|
+| A0 scaffold, intake tools | done | Linux, Windows |
+| A1 CI | done (7 workflow runs so far; every failure was found and fixed, see `docs/ci.md` §5) | GitHub Actions |
+| A2 core types, validation, conversion | done | gcc, clang+ASan/UBSan, MSVC |
+| A3 RDM reader/writer | done | gcc, clang+ASan/UBSan, MSVC |
+| A4 OBJ import/export | done | gcc, clang+ASan/UBSan, MSVC |
+| A5 metrics, distances, `compare` T0/T1/T2 | done | gcc, clang, MSVC (sample checksum identical on all three) |
+| A6 fuzzing | done: 3 targets, replay tests, 10-minute runs; **2 real bugs found and fixed** | clang+libFuzzer; replay on all |
+| A7 backend interface, facade, fake backend | done | gcc, clang, MSVC |
+| A8 process layer | done on Linux; Windows `protocol.all` passed on a real runner | gcc, clang, TSan, MSVC |
+| A9 `rdesk` worker CLI and protocol conformance | done | gcc, clang+ASan/UBSan, MSVC (`protocol.all` green on Windows) |
+| A10 GUI spike | done on Linux; Windows build is in the latest CI run | gcc + xvfb; MSVC pending |
+| A11 GUI shell, A12 selftest, A13 packaging | not started (no user input needed) | |
+| **B1 intake review, then the branch (S/D/P/L)** | **blocked on the user** (see below) | |
+
 ## 6. What the user does next
 
 1. Make the repo **private** (D1, R14).
