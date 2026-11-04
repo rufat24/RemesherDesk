@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Compiles the Unity-independent RdmWriter from ../../MeshDump.cs (UNITY_EDITOR is not
+       defined here, so the Unity-dependent half is excluded) and writes the canonical cube. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../MeshDump.cs" Link="MeshDump.cs" />
+  </ItemGroup>
+</Project>

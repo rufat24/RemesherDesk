@@ -1,0 +1,90 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "RDESK_BUILD_TESTS": "ON" }
+    },
+    {
+      "name": "unix-base",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Ninja",
+      "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "gcc-debug",
+      "displayName": "GCC Debug",
+      "inherits": "unix-base",
+      "cacheVariables": { "CMAKE_CXX_COMPILER": "g++", "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "gcc-release",
+      "displayName": "GCC Release",
+      "inherits": "unix-base",
+      "cacheVariables": { "CMAKE_CXX_COMPILER": "g++", "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "clang-debug",
+      "displayName": "Clang Debug",
+      "inherits": "unix-base",
+      "cacheVariables": { "CMAKE_CXX_COMPILER": "clang++", "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "clang-asan",
+      "displayName": "Clang Debug + ASan/UBSan",
+      "inherits": "unix-base",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Debug", "RDESK_SANITIZE": "ON"
+      }
+    },
+    {
+      "name": "ci-gcc",
+      "inherits": "gcc-release",
+      "cacheVariables": { "RDESK_WERROR": "ON" }
+    },
+    {
+      "name": "ci-clang",
+      "inherits": "clang-asan",
+      "cacheVariables": { "RDESK_WERROR": "ON" }
+    },
+    {
+      "name": "msvc",
+      "displayName": "MSVC x64 (default Visual Studio generator)",
+      "inherits": "base",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "ci-msvc",
+      "inherits": "msvc",
+      "cacheVariables": { "RDESK_WERROR": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "gcc-debug", "configurePreset": "gcc-debug" },
+    { "name": "gcc-release", "configurePreset": "gcc-release" },
+    { "name": "clang-debug", "configurePreset": "clang-debug" },
+    { "name": "clang-asan", "configurePreset": "clang-asan" },
+    { "name": "ci-gcc", "configurePreset": "ci-gcc" },
+    { "name": "ci-clang", "configurePreset": "ci-clang" },
+    { "name": "msvc-release", "configurePreset": "msvc", "configuration": "Release" },
+    { "name": "msvc-debug", "configurePreset": "msvc", "configuration": "Debug" },
+    { "name": "ci-msvc", "configurePreset": "ci-msvc", "configuration": "Release" }
+  ],
+  "testPresets": [
+    { "name": "base", "hidden": true, "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" } },
+    { "name": "gcc-debug", "inherits": "base", "configurePreset": "gcc-debug" },
+    { "name": "gcc-release", "inherits": "base", "configurePreset": "gcc-release" },
+    { "name": "clang-debug", "inherits": "base", "configurePreset": "clang-debug" },
+    { "name": "clang-asan", "inherits": "base", "configurePreset": "clang-asan" },
+    { "name": "ci-gcc", "inherits": "base", "configurePreset": "ci-gcc" },
+    { "name": "ci-clang", "inherits": "base", "configurePreset": "ci-clang" },
+    { "name": "msvc-release", "inherits": "base", "configurePreset": "msvc", "configuration": "Release" },
+    { "name": "ci-msvc", "inherits": "base", "configurePreset": "ci-msvc", "configuration": "Release" }
+  ]
+}

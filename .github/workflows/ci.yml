@@ -1,0 +1,82 @@
+# RemesherDesk CI. Policy and cost notes: docs/ci.md.
+#  - Linux jobs run on every push and PR (cheap).
+#  - Windows jobs run on PRs, pushes to main, manual dispatch, and on any push whose head commit
+#    message contains "[ci windows]" (cost control for private repos).
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: linux-${{ matrix.preset }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [ci-gcc, ci-clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build clang libclang-rt-18-dev
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
+
+  intake-tools:
+    name: intake-tools (C# writer, Python reader, PowerShell 7 inventory)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Python RDM reference self-test
+        run: python3 -I tools/rdm/rdm.py selftest
+      - name: MeshDump.cs type-check against Unity API stubs
+        run: dotnet build tools/unity/tests/StubCheck -nologo
+      - name: C# RdmWriter -> Python reader agreement
+        run: |
+          dotnet run --project tools/unity/tests/RdmWriterTest -- "$RUNNER_TEMP/cs_cube.rdm"
+          python3 -I tools/rdm/rdm.py check-fixture "$RUNNER_TEMP/cs_cube.rdm"
+      - name: Inventory.ps1 self-test (PowerShell 7, with a mingw-built test DLL)
+        run: |
+          sudo apt-get install -y -qq gcc-mingw-w64-x86-64
+          printf '__declspec(dllexport) int qr_remesh(void){return 0;}\n__declspec(dllexport) int qr_version(void){return 1;}\n' > "$RUNNER_TEMP/q.c"
+          x86_64-w64-mingw32-gcc -shared -o "$RUNNER_TEMP/q.dll" "$RUNNER_TEMP/q.c"
+          pwsh -NoProfile -File tools/intake/tests/Test-Inventory.ps1 -NativeDll "$RUNNER_TEMP/q.dll"
+
+  windows:
+    name: windows-msvc
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main' ||
+      contains(github.event.head_commit.message, '[ci windows]')
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake --preset ci-msvc
+      - name: Build
+        run: cmake --build --preset ci-msvc
+      - name: Test
+        run: ctest --preset ci-msvc
+      - name: Inventory.ps1 self-test (Windows PowerShell 5.1)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/intake/tests/Test-Inventory.ps1

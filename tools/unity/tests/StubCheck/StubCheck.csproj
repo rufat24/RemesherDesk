@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Type-checks the Unity-dependent half of MeshDump.cs against hand-written stubs of the
+       Unity API (../stubs/UnityStubs.cs). This only proves the script is syntactically valid
+       C# 7.3 and consistent with the stubs; the stubs mirror the documented Unity API but are
+       not Unity itself. The real check is compiling inside the Unity Editor at intake. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <DefineConstants>$(DefineConstants);RDESK_UNITY_STUBS</DefineConstants>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../MeshDump.cs" Link="MeshDump.cs" />
+    <Compile Include="../stubs/UnityStubs.cs" Link="UnityStubs.cs" />
+  </ItemGroup>
+</Project>

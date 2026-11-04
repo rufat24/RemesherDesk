@@ -1,114 +1,229 @@
 # RemesherDesk — Plan
 
-Goal: a standalone **desktop** app built around the **native remesher** from the Unity plugin
-`C:\Users\user\UnityProjects\Quadremesh` (native part only, no Unity runtime).
-This plan supersedes the draft in `rufat24/RemesherDektop` (`PLAN.md`), which had no code.
+RemesherDesk turns the **native remesher** of the Unity plugin *Quadremesh* (the user's machine: `C:\Users\user\UnityProjects\Quadremesh`) into a standalone Windows desktop app. No Unity runtime is involved.
 
-> **Provenance / honesty note.**
-> - The Unity project is not reachable from the cloud session. Nothing here asserts anything about the
->   remesher's algorithm, exported functions or data layout. Intake (B0) exists to fix that.
-> - The review and revision below came from a subagent run with the `opus` model alias. The tooling
->   does not expose which Opus version served it, so it is **not verified as Opus 5.5**.
-> - Not yet verified by us: the PowerShell inventory one-liner (never run), library licence claims
->   (Polyscope, Instant Meshes, libigl, QuadriFlow, CGAL), and the 2x Windows Actions-minutes multiplier.
->   Check each before relying on it.
+This document is the entry point and the single source of truth. Detail lives in the linked files.
 
-## Decisions
+| Document | Contents |
+|---|---|
+| [decisions.md](decisions.md) | Decision log: every choice, the alternatives, and what evidence would reverse it |
+| [architecture.md](architecture.md) | Repo layout, modules, data model, core API, worker protocol, threading, errors, logging |
+| [rdm-format.md](rdm-format.md) | The RDM binary mesh container (Unity dumps, worker IPC, fixtures) |
+| [intake.md](intake.md) | Intake gate B0: inventory script, Unity dump script, decision tree, per-branch milestones |
+| [work-breakdown.md](work-breakdown.md) | Every task (Part A now, Part B gated) with exit checks; the session schedule; the status table |
+| [testing.md](testing.md) | Test layers, golden data, parity tiers and tolerances, determinism, property tests, fuzzing |
+| [ci.md](ci.md) | CI matrix, cost control, local equivalents, observed runs |
+| [gui.md](gui.md) | Screens, parameter panel, viewer, progress/cancel, error states, shortcuts, acceptance checklist |
+| [packaging-licensing.md](packaging-licensing.md) | Licence audit, third-party matrix, Asset Store EULA, zip, signing, updates |
+| [risks.md](risks.md) | Risk register, open questions with defaults, Definition of done for v1 |
 
-1. **Work repo is `rufat24/RemesherDesk`.** Retire `RemesherDektop`. **Make RemesherDesk private before
-   pushing any Unity material** (it is currently public).
-2. **Build order:** core -> worker CLI -> GUI. Minimal OBJ I/O comes first, because the CLI needs it.
-   glTF is off the critical path.
-3. **Run each remesh in a separate worker process.** The CLI doubles as the worker and reports progress
-   as JSON lines on stdout. Cancel means killing the process. This isolates crashes and global state
-   and works the same for the source and DLL-only branches.
-4. **GUI: Polyscope** (ImGui + GLFW based) plus `nativefiledialog-extended`. Qt and Tauri are dropped.
-5. **Golden data = raw Unity `Mesh` arrays**, not Unity-exported OBJ. Unity has no built-in OBJ
-   exporter, and exporters bake in their own axis/winding changes. Capture vertices, index format,
-   submeshes and topology before and after a remesh with a small Editor script. After intake, capture
-   at the `[DllImport]` boundary too, so the native library is tested separately from the C# pipeline.
-6. **Convention handling lives only in the I/O layer.** Unity is left-handed, Y-up, clockwise front
-   faces: flip X *and* reverse winding. The core stays convention-neutral.
+> **What is known.** The Unity project cannot be reached from cloud sessions. Its language, algorithm, entry points, data layout and licence are **unknown**. This plan does not assume any of them. Everything that depends on them sits behind the intake gate (B0) and is marked **(B)**. Claims that could not be checked offline are marked **UNVERIFIED**. §7 lists what *was* checked in the planning session.
 
-## Part A — Can start now, without the source
+---
 
-| # | Milestone | Exit check | Worth doing before intake? |
+## 1. Executive summary
+
+We build a small C++20 application in three parts:
+
+- **`rdesk`** — a command-line tool that also serves as the **worker process**.
+- **`RemesherDesk`** — a GUI (Polyscope/ImGui) that runs each remesh in a fresh `rdesk` worker. It talks to the worker over a versioned JSON-lines protocol and exchanges meshes through RDM files.
+- **A core library** that knows nothing about Quadremesh. Remeshers plug in through an `IRemeshBackend` adapter.
+
+There are four possible adapters. Which one we build depends on what intake finds:
+
+- compiled-from-source (branch **S**)
+- prebuilt DLL (branch **D**)
+- hosted or ported C#/Burst (branch **P**)
+- an open-source fallback if the licence forbids using Quadremesh (branch **L**)
+
+About 10 sessions of work need no Quadremesh source: core, I/O, metrics, the worker, the GUI and packaging (Part A). Every branch reuses all of it. Intake costs the user about 15 minutes: run one PowerShell script and one Unity menu item, then answer three questions. It decides the branch before anyone touches the source. Parity with Unity is proven against **raw Unity mesh dumps**, using tiered tolerances that are justified in [testing.md](testing.md).
+
+## 2. Goals, non-goals, success criteria
+
+**Goals (v1)**
+
+1. A Windows x64 desktop app that loads a mesh, runs the same remesh as Quadremesh does in Unity with the same parameters, shows before and after, and exports the result.
+2. Results match Unity's within the agreed parity tier, proven on at least 3 golden cases.
+3. Robust: a remesher crash or hang never takes down the GUI, and cancel always works.
+4. Every session can rebuild and re-verify the whole project from the repo alone.
+
+**Non-goals (v1)**
+
+- macOS builds. Linux is used for development and CI only.
+- FBX export, glTF export (glTF cannot store quads), USD.
+- Mesh repair or editing. Invalid input is reported and highlighted, not fixed.
+- UV, normal or skinning transfer onto the remeshed output, unless Quadremesh itself does it (decided at B5).
+- Batch processing UI. The CLI `rdesk` covers scripting.
+- Running inside Unity, or any dependency on the Unity runtime.
+- Auto-update, telemetry, network access of any kind.
+
+**Success criteria (measurable; full checklist in [risks.md](risks.md) §3)**
+
+| # | Criterion | Target | Measured by |
 |---|---|---|---|
-| S1 | CMake skeleton + presets; CI on Linux (gcc, clang) and Windows (MSVC); stub library with ctest | Both CI jobs green | Yes |
-| S2 | Mesh model (32-bit indices, polygon faces); OBJ and PLY I/O (tinyobjloader / happly); `UnityDump` reader with explicit left-handed -> right-handed conversion | Round-trip tests pass; signed volume > 0 after conversion | Yes |
-| S3 | Unity Editor script `tools/unity/MeshDump.cs` that dumps raw `Mesh` arrays | You send 2 before/after dump pairs | Yes (this is the golden data) |
-| S4 | `remesh-worker` CLI with a fake backend (e.g. Catmull-Clark split) and a JSON-lines progress/cancel protocol | Worker is killed within 200 ms of cancel | Yes, minimal version |
-| S5 | Polyscope viewer shell: load, run worker, before/after, export | Windows CI artifact launches; Linux Xvfb screenshot smoke test | Thin shell only |
+| SC1 | Parity on the golden cases | branch tier: S → T1 Win / T2 Linux; D → T0 Win; P → T2; L → n/a | `tests/parity`, `docs/parity-report.md` |
+| SC2 | Cancel responsiveness | UI idle ≤ 1.25 s after Cancel, 20 of 20 trials, including a non-cooperative backend | `tests/protocol/cancel_timing` + GUI checklist |
+| SC3 | Crash isolation | backend crash → error banner, GUI alive, job folder saved | protocol test `debug.crash` |
+| SC4 | Performance | desktop remesh time ≤ 1.2× Unity's on case03; worker overhead ≤ 300 ms | user measurement + A9 timing |
+| SC5 | Scale | 1M-triangle OBJ loads ≤ 3 s; views at ≥ 30 fps | A4/A11 measurements |
+| SC6 | Start-up | window visible ≤ 2 s cold | user measurement |
+| SC7 | Robust I/O | fuzzing ≥ 1 h per reader with no open findings | `fuzz.yml` |
+| SC8 | Distribution | zip ≤ 50 MB (excluding the backend) runs on a clean Windows runner (`--selftest`) | A13 CI job |
 
-Likely wasted if done before intake: the parameter panel, a C ABI facade / `RemeshParams` struct, glTF,
-packaging, and anything assuming the algorithm's inputs (feature edges, target count, density maps).
+## 3. Decisions at a glance
 
-## Part B — Blocked on the source
+Full reasoning, alternatives and reversal evidence are in [decisions.md](decisions.md).
 
-| # | Milestone | Exit check |
+| # | Decision | vs. draft |
 |---|---|---|
-| B0 | Inventory reviewed; branch chosen (C++ source / DLL only / Burst-compiled C#); licence verdict | `docs/abi.md` and `docs/licenses.md` written |
-| B1 | Native code builds under our CMake with no Unity headers | Linux and Windows CI green |
-| B2 | Backend adapter in the worker + parity tests against the S3 dumps | Windows MSVC: counts identical, positions bitwise equal or within 1e-6 x bbox diagonal. Linux: same counts, Hausdorff < 1e-4 x diagonal, repeat runs identical or the difference explained |
-| B3 | Real progress and cancel, if the native API supports them | Progress only increases; cancel works |
-| B4 | Parameter panel mirroring the Unity inspector's defaults and ranges | Defaults table matches the C# source |
-| B5 | Packaging: zip with licences; CI runs `app --selftest` | Clean Windows runner passes |
+| D1 | Single private repo `rufat24/RemesherDesk`; private **before** any Unity material is pushed | kept |
+| D2 | One worker process per remesh; JSON-lines protocol v1; meshes via files; cooperative cancel, then kill after 1 s; Win32 Job Object; no WER dialog | kept, changed |
+| D3 | Polyscope + ImGui + nfd-extended, gated by a 1-session spike; fallback is plain ImGui + our own GL 3.3 renderer | kept, conditional |
+| D4 | Golden data = raw Unity arrays in the RDM container, plus boundary capture at the DllImport call (B) | kept, strengthened |
+| D5 | OBJ + RDM in v1; PLY optional; glTF import later; no FBX | changed (PLY demoted) |
+| D6 | CMake ≥ 3.25 + presets; FetchContent pinned by hash; no package manager | kept |
+| D7 | C++20 + in-house `Result<T>` (`std::expected` unusable with clang 18 + libstdc++ 13, verified) | new |
+| D8 | float32 CSR polygon mesh, per-vertex attributes, RH Y-up CCW internally | new |
+| D9 | Unity ↔ RH: negate X + reverse winding keeping corner 0 (exact, tested) | made exact |
+| D10 | doctest, nlohmann/json, tinyobjloader, own process layer | new |
+| D11 | Ship Windows x64 only | kept |
+| D12 | GitHub Actions; Windows jobs gated | new |
+| D13 | Parity tiers T0/T1/T2 instead of one tolerance | new |
+| D14 | Portable zip first; installer and signing later | new |
 
-If the "native" part is **Burst-compiled C#** or IL2CPP output, there is no C++ source and the job becomes
-a port. The inventory (below) detects this. If it is a **DLL only**: Windows x64 only, check
-`dumpbin /dependents` for UnityPlayer / `IUnityInterface` (if present it will not load outside Unity),
-test only in Windows CI, and confirm the DLL is redistributable.
+## 4. Architecture in one picture
 
-## Getting the code into the cloud
+Details are in [architecture.md](architecture.md).
 
-**Recommended: `git push` to the private RemesherDesk repo**, as an untouched first commit under
-`third_party/quadremesh/`, so later changes show as diffs. A zip upload is fine only for the small
-inventory zip. Remote Control is not reliably available. Do not use Git LFS (cloud sessions may not
-receive LFS content).
-
-Collect: native source + build files (also look outside `Assets/`: `Native~`, `Library/PackageCache`);
-shipped binaries in `Plugins/`; every `.cs` containing `DllImport`, plus C# that runs before/after the
-native call; the inspector/editor window script; LICENSE/COPYING/NOTICE files and the Asset Store
-invoice/EULA if bought; 2-3 raw before/after dumps with their parameters.
-
-**Step 0a — inventory (CSV only, no source).** Run in "Developer PowerShell for VS" so `dumpbin` exists
-(plain PowerShell works but skips the exports step). *Untested.*
-
-```powershell
-$p='C:\Users\user\UnityProjects\Quadremesh';$o="$env:USERPROFILE\Desktop\qr_intake";mkdir $o -f|out-null;$r=@("$p\Assets","$p\Packages","$p\Library\PackageCache")+(gci $p -dir|?{$_.Name -notin 'Assets','Packages','Library','Temp','Logs','obj','UserSettings','ProjectSettings'}|%{$_.FullName});$f=gci $r -r -file -ea 0;$f|?{$_.Extension -in '.c','.cc','.cpp','.cxx','.h','.hpp','.inl','.dll','.so','.dylib','.bundle','.lib','.a','.def','.vcxproj','.sln' -or $_.Name -match '^(CMakeLists\.txt|LICENSE|COPYING|NOTICE)'}|select FullName,Length|export-csv "$o\native_files.csv" -nti;$f|?{$_.Extension -eq '.cs'}|sls 'DllImport|extern static|BurstCompile' -list|select Path,LineNumber,Line|export-csv "$o\interop_cs.csv" -nti;if(gcm dumpbin -ea 0){$f|?{$_.Extension -eq '.dll'}|%{"== $($_.FullName)";dumpbin /nologo /exports /dependents $_.FullName}|out-file "$o\dll_exports.txt"};Compress-Archive "$o\*" "$o.zip" -f
+```
+ RemesherDesk.exe (GUI)                      rdesk.exe (worker / CLI)
+ ┌──────────────────────────┐  spawn+Job   ┌────────────────────────────────────┐
+ │ AppController            │ ───────────▶ │ load RDM/OBJ → facade.remesh()     │
+ │ JobController ◀─ events ─┼── stdout ────┤   validate · params · convention    │
+ │  (reader thread)  cancel ┼── stdin ────▶│   IRemeshBackend                    │
+ │ Viewer (Polyscope/ImGui) │              │    ├ fake.subdivide (always)        │
+ │ links: core, io, platform│◀─ files ────▶│    ├ quadremesh.src  (S)            │
+ └──────────────────────────┘ job folder   │    ├ quadremesh.dll  (D, Windows)   │
+                                           │    └ oss.*           (L)            │
+                                           └────────────────────────────────────┘
+        (branch P-a: a .NET 8 worker implements the same protocol)
 ```
 
-**Step 0b — push the source** (after reviewing 0a and making the repo private):
+## 5. Plan of work
 
-```powershell
-cd C:\src; git clone https://github.com/rufat24/RemesherDesk; cd RemesherDesk; git switch -c intake; robocopy <native dirs> third_party\quadremesh\native /E; robocopy <cs dirs> third_party\quadremesh\unity_cs /E; git add -A; git commit -m "Vendor Quadremesh native + interop (unmodified)"; git push -u origin intake
+The full task list, with files, steps and exit commands, is in [work-breakdown.md](work-breakdown.md).
+
+**Part A — now, no source needed**
+
+| ID | Task |
+|---|---|
+| A0 | Scaffold, plan and intake tools (**done**) |
+| A1 | CI green on Linux and Windows |
+| A2 | Core types and validation |
+| A3 | RDM C++ I/O |
+| A4 | OBJ I/O |
+| A5 | Metrics and Hausdorff |
+| A6 | Fuzzing |
+| A7 | Backend API, facade, fake backend |
+| A8 | Process layer |
+| A9 | Worker and protocol conformance |
+| A10 | GUI spike |
+| A11 | GUI shell |
+| A12 | GUI tests and `--selftest` |
+| A13 | Packaging skeleton |
+| A14 | *(optional)* Unity RDM importer |
+| A15 | *(optional)* PLY |
+
+**Part B — gated on intake.** B1 is the intake review. It chooses one branch:
+
+| Branch | Task sequence |
+|---|---|
+| S | S1 build → S2 ABI + boundary capture + adapter → B3 parity → B4 progress/cancel → B5 parameters → B6 release |
+| D | D1 ABI + loadability → D2 adapter → B3–B6 |
+| P | P0 feasibility → P-a .NET worker (or P-b port) → B3–B6 |
+| L | L1 OSS backend → L2 quality report → B6 |
+
+**Schedule.**
+
+1. Session 1 = A0 (this).
+2. Sessions 2–10 = A1…A13. Some tasks run in parallel; see the table in work-breakdown §3.
+3. **B1 jumps the queue** as soon as the inventory arrives.
+4. A branch then takes about 3–8 sessions (UNVERIFIED estimates).
+
+## 6. What the user does next
+
+1. Make the repo **private** (D1, R14).
+2. Answer **Q1–Q3** ([risks.md](risks.md) §2).
+3. Run `tools/intake/Inventory.ps1` and send `qr_intake.zip` ([intake.md](intake.md) §1).
+4. Copy `tools/unity/MeshDump.cs` into the Unity project and dump 3–5 before/after cases ([intake.md](intake.md) §2). This can wait until after step 3.
+
+## 7. Verification record of the planning session (A0)
+
+**Checked in the container** (Ubuntu 24.04, CMake 3.28.3, GCC 13.3, Clang 18.1.3, Python 3, .NET SDK 8.0.133, PowerShell 7.6.9, mingw-w64):
+
+- The CMake presets `ci-gcc` (Release, `-Werror`), `ci-clang` (Debug + ASan/UBSan, `-Werror`) and `gcc-debug` configure and build, and pass ctest: 2/2 tests each.
+  - The ASan link needed `libclang-rt-18-dev`, which was installed.
+- `<expected>` fails with clang 18 + libstdc++ 13 under C++20 and C++23. With gcc 13 it works only under C++23. This decided D7.
+- `tools/rdm/rdm.py selftest` passes. It covers:
+  - round trip
+  - 8-byte alignment
+  - a volume of 1.0 for the cube in both conventions
+  - negative volume after a half-conversion
+  - double conversion is the identity
+  - unknown chunks are skipped
+  - out-of-range indices and truncated files are rejected
+- The C# 7.3 `RdmWriter` (from `tools/unity/MeshDump.cs`), compiled on .NET 8, wrote a cube that `rdm.py check-fixture` accepted. The Unity half of `MeshDump.cs` type-checks against hand-written Unity API stubs, with warnings treated as errors.
+- `tools/intake/Inventory.ps1` passed `Test-Inventory.ps1` on PowerShell 7.6 (Linux) with a synthetic project. The project included a real x64 PE DLL with exports (built with mingw), a managed DLL, a non-ASCII path, `Temp/` and `com.unity.*` content to exclude, and literal and constant `DllImport` names.
+- Two claims about the draft's PowerShell one-liner were checked in pwsh:
+  - Its `extern static` regex misses `static extern` (the result is `False`).
+  - Its `-in … -or …` precedence is correct.
+- The top-level LICENSE files of 18 relevant repositories were read on their default branches ([packaging-licensing.md](packaging-licensing.md) §2).
+
+**Not checked (UNVERIFIED):**
+
+- **Polyscope build and API.** Building third-party code was blocked by the session's sandbox policy; the A10 spike covers this.
+- **The MSVC preset and the Windows CI job** (A1).
+- **Windows PowerShell 5.1 behaviour of the inventory.** CI runs it once A1 is done.
+- **MeshDump.cs inside a real Unity Editor.**
+- **The repository's current public or private visibility.**
+- **GitHub Actions pricing.**
+- **Asset Store EULA terms.**
+- **Every timing target.**
+
+## 8. How a fresh session should start
+
+```bash
+# 0. Orientation (read in this order)
+cat docs/PLAN.md docs/work-breakdown.md            # then the docs the chosen task links to
+git log --oneline | head -20                       # what happened recently
+grep -n "Status" -A30 docs/work-breakdown.md | tail -30   # task status table
+
+# 1. Toolchain (fresh cloud container; cmake/gcc/clang/ninja/python3 are preinstalled)
+apt-get install -y libclang-rt-18-dev              # ASan/UBSan runtime for the ci-clang preset
+# Only for intake-tool work:
+#   curl -sSLo /tmp/pms.deb https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb \
+#     && dpkg -i /tmp/pms.deb && apt-get update && apt-get install -y powershell dotnet-sdk-8.0 gcc-mingw-w64-x86-64
+
+# 2. Build and test
+cmake --preset ci-gcc   && cmake --build --preset ci-gcc   && ctest --preset ci-gcc
+cmake --preset ci-clang && cmake --build --preset ci-clang && ctest --preset ci-clang
+
+# 3. Pick the task
+#   - If docs/intake-report.md does not exist and the user has sent qr_intake.zip → do B1.
+#   - Else the first task in the status table that is "not started" and whose deps are done.
+#     Right now that is A1 (+ A2 in the same session).
 ```
 
-## Open questions (default if unanswered)
+Rules for every session:
 
-1. Is the remesher your own code, open source, or from the Asset Store? *Default: treat as restricted;
-   private repo; distribute nothing until the licence is cleared.*
-2. Native part: C++ source, DLL only, or Burst C#? *Default: C++ source (the inventory answers this).*
-3. For you only, or shipped to others? *Default: you only, Windows only.*
-4. Must it match Unity exactly? *Default: tolerance-based parity; bitwise only on Windows MSVC.*
-5. File formats? *Default: OBJ + PLY in/out; glTF later; no FBX.*
-6. Linux/macOS builds? *Default: no; Linux is for dev and CI only.*
+- Follow the task's exit checks.
+- Never invent anything about Quadremesh; if a step needs it, the task belongs in Part B.
+- Mark unverifiable claims UNVERIFIED.
+- Update the status table and the docs you change.
+- Commit with a descriptive message, and push to the branch the session was assigned.
 
-## Risks
+## Provenance
 
-- **Licence (can end the project):** Asset Store EULA; GPL parts such as libigl `copyleft/comiso`, CGAL,
-  CoMISo; Gurobi-style solvers. Audit at intake, not at packaging.
-- **Determinism:** TBB/OpenMP scheduling, seeds, `/fp:fast` vs `-ffast-math`, `unordered_*` order. Exact
-  parity is only realistic with the same compiler and flags as the Unity build.
-- **Index format:** Unity defaults to 16-bit indices; vertices split at UV/normal seams; submeshes. Find
-  out whether the C# welds before the native call and do the same.
-- **CI cost:** Windows runners bill at a higher multiplier on private repos; run Windows CI on PRs and
-  main, not every push.
-
-## Next 3 actions
-
-1. **You:** make RemesherDesk private; run the inventory one-liner; send `qr_intake.zip`; answer
-   questions 1-3.
-2. **Next session (before intake):** S1, S2 and the S3 dump script.
-3. **After the inventory:** B0 (branch + licence verdict); you push the source to `intake` and run the
-   dump script on 2 meshes; the session after that starts B1.
+- This plan replaces the earlier draft (`git show d736f54:docs/PLAN.md`). That draft also superseded the older `rufat24/RemesherDektop` `PLAN.md`.
+- The draft's decisions are re-examined one by one in [decisions.md](decisions.md).
+- The draft's PowerShell one-liner is replaced by `tools/intake/Inventory.ps1`. Its bugs are explained in [intake.md](intake.md) §1.
