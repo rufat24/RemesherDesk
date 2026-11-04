@@ -1,6 +1,6 @@
 # Architecture
 
-Status: design. Implemented so far in `src/core`: `result.hpp`, `mesh.hpp`, `convention.hpp`, `validate.hpp` (task A2), `metrics.hpp` (task A5); in `src/io`: `rdm.hpp` (task A3), `obj.hpp` (task A4). Everything marked
+Status: design. Implemented so far in `src/core`: `result.hpp`, `mesh.hpp`, `convention.hpp`, `validate.hpp` (task A2), `metrics.hpp` (task A5), `params.hpp`/`backend.hpp` and the facade (task A7); in `src/io`: `rdm.hpp` (task A3), `obj.hpp` (task A4), `json_codec.hpp` (task A7); `src/backends/fake` (task A7). Everything marked
 **(B)** depends on intake (`docs/intake.md`). Everything else can be built now.
 
 ## 1. Repository layout (target)
@@ -157,7 +157,7 @@ class IRemeshBackend {
 
 // Registry: backends register at static-init time via a macro in their own library,
 // and the cli links them explicitly (no dlopen plugin system in v1).
-const std::vector<IRemeshBackend*>& backends();
+std::vector<std::shared_ptr<IRemeshBackend>> registered_backends();  // renamed from backends(): clashes with namespace rdesk::backends
 IRemeshBackend* find_backend(std::string_view id);
 
 // Facade: the only entry point the cli calls.

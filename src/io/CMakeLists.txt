@@ -3,6 +3,7 @@ rdesk_fetch_tinyobj()
 add_library(rdesk_io
   src/rdm.cpp
   src/obj.cpp
+  src/json_codec.cpp
 )
 add_library(rdesk::io ALIAS rdesk_io)
 target_include_directories(rdesk_io PUBLIC

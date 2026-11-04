@@ -22,8 +22,9 @@ add_executable(rdesk_unit
   unit/test_rdm.cpp
   unit/test_obj.cpp
   unit/test_metrics.cpp
+  unit/test_facade.cpp
 )
-target_link_libraries(rdesk_unit PRIVATE rdesk::core rdesk::io doctest::doctest)
+target_link_libraries(rdesk_unit PRIVATE rdesk::core rdesk::io rdesk::backend_fake doctest::doctest)
 target_include_directories(rdesk_unit PRIVATE ${PROJECT_SOURCE_DIR}/src/core/src)
 target_compile_definitions(rdesk_unit PRIVATE RDESK_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 rdesk_target_defaults(rdesk_unit)

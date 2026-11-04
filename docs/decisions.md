@@ -169,3 +169,11 @@ See `docs/testing.md` §3.
 See `docs/packaging-licensing.md`.
 
 **Reverse if:** the user wants Start-menu integration or file associations (then use an Inno Setup installer), or plans public distribution (then add code signing).
+
+## A7 implementation notes (backend interface, facade, fake backend)
+
+- **Explicit backend registration, not static initialisers.** `docs/architecture.md` §3 had backends registering themselves at static-init time. Static initialisers inside a static library are dropped by the linker unless something references the object file, so a backend could silently vanish from the CLI. Each backend library instead exposes a `register_*()` function that the executable calls; the registry is a function-local static behind a mutex. Reversal evidence: if backends ever become shared libraries loaded by name, self-registration is natural again.
+- **Params JSON lives in `rdesk_io`** (`json_codec.hpp`), not in core. The task text put nlohmann/json next to `params.hpp`, which would have broken the rule that core depends on the standard library only.
+- **`registered_backends()`** replaces the draft's `backends()`: that name collides with the namespace `rdesk::backends` that holds the backend libraries.
+- **`InputRequirements`** (`require_manifold`, `require_closed`, `triangles_only`) is the "policy from backend" that §3 mentions but did not define.
+- **Facade cancel rule.** A cancel that is set when the backend returns is reported as `Cancelled` even if the backend finished (a deaf backend such as `debug.ignore_cancel`), so the worker never reports success after the user pressed Cancel.

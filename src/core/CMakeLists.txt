@@ -4,6 +4,8 @@ add_library(rdesk_core
   src/convention.cpp
   src/validate.cpp
   src/metrics.cpp
+  src/params.cpp
+  src/facade.cpp
   src/sampling.cpp
   src/aabb_tree.cpp
 )
