@@ -56,7 +56,7 @@ The "Top-level licence" column was **read from the repository's LICENSE file on 
 | Dear ImGui (via Polyscope) | MIT | include notice |
 | GLFW (via Polyscope) | zlib | none for binaries (keep notice) |
 | nativefiledialog-extended | zlib | same |
-| tinyobjloader | MIT | include notice |
+| tinyobjloader v2.0.0rc13 (pinned to commit `2945a96…`) | MIT (LICENSE read at that tag) | include notice |
 | nlohmann/json 3.11.3 (pinned to commit `9cca280…`) | MIT (LICENSE.MIT read at that tag) | include notice |
 | doctest 2.4.11 (tests only, not shipped; pinned to commit `ae7a135…`) | MIT (LICENSE.txt read at that tag) | — |
 | happly (optional A15) | MIT | include notice |

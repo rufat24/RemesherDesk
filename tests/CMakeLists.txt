@@ -20,6 +20,7 @@ add_executable(rdesk_unit
   unit/test_mesh.cpp
   unit/test_validate.cpp
   unit/test_rdm.cpp
+  unit/test_obj.cpp
 )
 target_link_libraries(rdesk_unit PRIVATE rdesk::core rdesk::io doctest::doctest)
 target_compile_definitions(rdesk_unit PRIVATE RDESK_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")

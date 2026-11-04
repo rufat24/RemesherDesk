@@ -37,3 +37,19 @@ function(rdesk_fetch_json)
   add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED GLOBAL)
   target_include_directories(nlohmann_json::nlohmann_json SYSTEM INTERFACE "${nlohmann_json_SOURCE_DIR}/single_include")
 endfunction()
+
+# tinyobjloader v2.0.0rc13 (MIT), used by src/io for OBJ. Pinned to the commit of that tag.
+# Single header; the implementation is compiled once, in its own target without our warning flags.
+function(rdesk_fetch_tinyobj)
+  if(TARGET rdesk_tinyobj)
+    return()
+  endif()
+  FetchContent_Declare(tinyobjloader
+    GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
+    GIT_TAG        2945a967c5303b2c8c14174117c45f3302591150  # v2.0.0rc13
+    SOURCE_SUBDIR  rdesk-header-only-no-cmake)
+  FetchContent_MakeAvailable(tinyobjloader)
+  add_library(rdesk_tinyobj STATIC "${PROJECT_SOURCE_DIR}/src/io/third_party/tinyobj_impl.cpp")
+  target_include_directories(rdesk_tinyobj SYSTEM PUBLIC "${tinyobjloader_SOURCE_DIR}")
+  set_target_properties(rdesk_tinyobj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endfunction()

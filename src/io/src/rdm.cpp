@@ -4,6 +4,7 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <fstream>
 #include <limits>
 #include <string>
@@ -76,7 +77,7 @@ struct SubMesh {
 
 }  // namespace
 
-Result<RdmFile> read_rdm(const uint8_t* data, size_t size) {
+static Result<RdmFile> read_rdm_impl(const uint8_t* data, size_t size) {
   if (size < kHeaderSize) return parse_error("file too short for header");
   if (std::memcmp(data, "RDMF", 4) != 0) return parse_error("bad magic");
   if (rd16(data + 4) != 1) return parse_error("unsupported major version " + std::to_string(rd16(data + 4)));
@@ -228,6 +229,14 @@ Result<RdmFile> read_rdm(const uint8_t* data, size_t size) {
   return out;
 }
 
+Result<RdmFile> read_rdm(const uint8_t* data, size_t size) {
+  try {
+    return read_rdm_impl(data, size);
+  } catch (const std::exception& e) {  // bad_alloc and friends: no exception crosses the module boundary
+    return make_error(Errc::Internal, std::string("RDM: unexpected failure: ") + e.what());
+  }
+}
+
 Result<RdmFile> read_rdm_file(const std::filesystem::path& path) {
   std::ifstream in(path, std::ios::binary);
   if (!in) return make_error(Errc::IoRead, "cannot open " + path.string());
@@ -284,7 +293,7 @@ class ChunkWriter {
 
 }  // namespace
 
-Result<std::vector<uint8_t>> serialize_rdm(const PolyMesh& mesh, const RdmWriteOptions& opts) {
+static Result<std::vector<uint8_t>> serialize_rdm_impl(const PolyMesh& mesh, const RdmWriteOptions& opts) {
   if (auto fe = format_errors(mesh); !fe.empty()) return make_error(Errc::InputInvalid, "RDM: cannot write a malformed mesh: " + fe.front());
   const size_t nv = mesh.vertex_count();
   for (const uint32_t c : mesh.corners) {
@@ -333,7 +342,7 @@ Result<std::vector<uint8_t>> serialize_rdm(const PolyMesh& mesh, const RdmWriteO
 
   {
     ChunkWriter c(out, "META");
-    const std::string text = meta.dump();
+    const std::string text = meta.dump(-1, ' ', false, json::error_handler_t::replace);
     c.buf().insert(c.buf().end(), text.begin(), text.end());
     c.finish();
     ++chunks;
@@ -394,6 +403,14 @@ Result<std::vector<uint8_t>> serialize_rdm(const PolyMesh& mesh, const RdmWriteO
   }
   std::memcpy(out.data() + count_pos, &chunks, 4);
   return out;
+}
+
+Result<std::vector<uint8_t>> serialize_rdm(const PolyMesh& mesh, const RdmWriteOptions& opts) {
+  try {
+    return serialize_rdm_impl(mesh, opts);
+  } catch (const std::exception& e) {
+    return make_error(Errc::Internal, std::string("RDM: unexpected failure: ") + e.what());
+  }
 }
 
 Result<void> write_rdm_file(const std::filesystem::path& path, const PolyMesh& mesh, const RdmWriteOptions& opts) {

@@ -164,6 +164,14 @@ TEST_CASE("rdm: the writer refuses meshes the reader would reject") {
   CHECK(serialize_rdm(make_cube(), RdmWriteOptions{"x", "[1,2]", ""}).error().code == Errc::ParamInvalid);
 }
 
+TEST_CASE("rdm: a producer string that is not valid UTF-8 does not throw") {
+  RdmWriteOptions o;
+  o.producer = std::string("bad\xff\xfe producer");
+  auto bytes = serialize_rdm(make_cube(), o);
+  REQUIRE(bytes.ok());
+  CHECK(read_rdm(bytes.value().data(), bytes.value().size()).ok());
+}
+
 TEST_CASE("rdm: an empty mesh round-trips") {
   PolyMesh m;
   m.face_offsets = {0};

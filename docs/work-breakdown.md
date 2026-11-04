@@ -397,4 +397,5 @@ Sessions run sequentially unless marked ∥, which means they can run in paralle
 | A1 | done (CI run linked in `docs/ci.md` §5; the Windows job and the 5.1 inventory test were green on A0) |
 | A2 | done on Linux (gcc 13 `-Werror`; clang 18 + ASan/UBSan `-Werror`); first MSVC run failed on the dependency CMake version, fixed (`docs/ci.md` §5) |
 | A3 | done on Linux (gcc, clang+ASan/UBSan; also configured/built/tested with CMake 4.4.4); MSVC result in `docs/ci.md` §5 |
+| A4 | done on Linux (gcc, clang+ASan/UBSan); 1,002,528-triangle OBJ reads in 0.58 s (local Release, gcc 13) against the 3 s target; MSVC result in `docs/ci.md` §5 |
 | all others | not started |
