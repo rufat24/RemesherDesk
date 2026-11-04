@@ -64,3 +64,7 @@ The `ci-msvc` preset sets no generator on purpose. CMake then uses the newest Vi
 | Read a 1,002,528-triangle OBJ | 0.58 s | < 3 s |
 
 Windows numbers are printed by the same tests in the `windows-msvc` job log (`[protocol] ...` lines).
+| Fuzz `fuzz_rdm`, 10 min, clang 18 + ASan/UBSan | 15.0 M executions (25 k/s), no findings | 10 min, no findings |
+| Fuzz `fuzz_params_json`, 10 min | 8.2 M executions (13.6 k/s), no findings | same |
+| Fuzz `fuzz_obj`, 10 min, after the two fixes | 1.46 M executions, no findings. **Low count:** the run shared the 4 cores with a Polyscope build (2.4 k/s vs ~10 k/s when alone); an uncontended re-run is worthwhile | same |
+| GUI: `RemesherDesk --screenshot` under xvfb, Mesa llvmpipe | 1.6 s end to end for a 1024x640 frame; executable 10.7 MB (9.7 MB stripped) | binary < 15 MB |
